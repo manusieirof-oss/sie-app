@@ -42,11 +42,12 @@ const chapa = (pos: any): any => ({
   boxShadow: '0 1px 5px rgba(38,40,37,.20)', ...pos,
 })
 
-export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, setComent,
+export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, onAceptarMedida, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA, desplegar = false }: any) {
   const [moviendo, setMoviendo] = useState(false)
+  const [cambiandoMedida, setCambiandoMedida] = useState<string | null>(null)
   /* ARRASTRAR (ordenando): con el dedo o el ratón, por eventos de puntero para que vaya
      también en la tablet. Se coge una tarjeta y se suelta encima de otra: ocupa su sitio. */
   const [arrastra, setArrastra] = useState<{ pos: string, sobre: number | null } | null>(null)
@@ -252,7 +253,19 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
               )}
               {/* HA CAMBIADO ALGO PRINCIPAL desde que se puso en la sesión (cómo se mide). */}
               {!ej._perdido && ej._cambio && (
-                <div style={{ fontSize: 11, color: '#8A6410', marginTop: 3, lineHeight: 1.35 }}>⚠ Este ejercicio ha cambiado: {ej._cambio}.</div>
+                <div style={{ fontSize: 11, color: '#8A6410', marginTop: 3, lineHeight: 1.35 }}>⚠ Este ejercicio ha cambiado: {ej._cambio}.
+                  {/* Y SE PUEDE CAMBIAR: pasa su sesión a como está en la biblioteca. */}
+                  {onAceptarMedida && ej._tipoBib && ej.pos != null && (
+                    <button type="button" disabled={!!cambiandoMedida} onClick={async e => {
+                        e.stopPropagation(); setCambiandoMedida(String(ej.pos))
+                        try { await onAceptarMedida(String(ej.pos), ej._tipoBib, ej.nombre) } finally { setCambiandoMedida(null) }
+                      }}
+                      style={{ display: 'block', margin: '5px auto 0', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
+                        border: '1.5px solid #C99A2E', background: '#FFF6DF', color: '#7A5800', cursor: cambiandoMedida ? 'default' : 'pointer' }}>
+                      {cambiandoMedida === String(ej.pos) ? 'Cambiando…' : `Medirlo ${ej._cargaBib} en su sesión`}
+                    </button>
+                  )}
+                </div>
               )}
               {ej.propuesta && <ChipPropuesta p={ej.propuesta}/>}
               {/* REPETIDO EN LA SEMANA: ya lo hizo otro día o lo tiene en otra cita. Solo

@@ -908,6 +908,17 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, sesionId: destino.id, datos: conservarDelDia(x.datos, datos) }))
   }
 
+  /** «AHORA SE MIDE CON PESO»: pone en su sesión cómo se mide en la biblioteca, para
+      siempre. Antes solo avisaba y no había forma de cambiarlo desde la sala. */
+  async function aceptarMedida(pid: string, pos: string, tipo: string, nombre?: string) {
+    const [pi, pe] = String(pos).split('.').map(Number)
+    await editarSuSesion(pid, partes => {
+      const e = partes?.[pi]?.ejercicios?.[pe]
+      if (e) e.tipo_medida = tipo
+      return partes
+    }, undefined, `Cómo se mide${nombre ? ' ' + nombre : ''}: como en la biblioteca`)
+  }
+
   /**
    * EL MÉTODO DE UNA PARTE (modo, series o vueltas, pausas). «Solo hoy» va a los ajustes
    * de su cita (lib/ajustesCita, `partes`): el plan no se toca. «Para siempre» cambia su
@@ -1212,6 +1223,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const cs = e.tipo_medida_ses ? partesMedida(e.tipo_medida_ses).carga : null, cb = t?.tipo_medida ? partesMedida(t.tipo_medida).carga : null
         const CARGA: Record<string, string> = { kg: 'con peso', banda: 'con goma', corporal: 'sin carga' }
         e._cambio = cs && cb && cs !== cb ? `Ahora se mide ${CARGA[cb]} (en la sesión, ${CARGA[cs]})` : null
+        e._tipoBib = e._cambio ? t.tipo_medida : null
+        e._cargaBib = e._cambio ? CARGA[cb!] : null
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
@@ -2037,7 +2050,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       )}
 
       {/* CUERPO */}
-      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
+      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
