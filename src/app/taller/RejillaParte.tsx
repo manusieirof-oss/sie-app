@@ -1,15 +1,13 @@
 'use client'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { Ic } from '@/lib/icons'
-import ChapaEjecucion from './ChapaEjecucion'
-import { ChapaComentario } from './ChapasEjercicio'
-import Flotante from './Flotante'
 import CasillaSeries from './CasillaSeries'
+import RoscoEjercicio from './RoscoEjercicio'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen, { LADOS, cambiadoHoy } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { CromoDeId } from '@/components/FichaEjercicio'
 import { supabase } from '@/lib/supabase'
 import { Velo } from './GestionCita'
@@ -66,6 +64,8 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
   const cfgTrabajo = useConfigTrabajo()
   // El cromo abierto: de qué ejercicio y en qué hueco de la parte está (para cambiarlo desde él).
   const [cromo, setCromo] = useState<{ id: string, ei: number, cambia: boolean } | null>(null)
+  /** El rosco abierto (tocando la foto): de qué ejercicio. */
+  const [rosco, setRosco] = useState<number | null>(null)
   /* REVISAR UN EJERCICIO (cualquier nivel): si en sala se ve que está mal, se apunta qué
      y queda como tarea del equipo en «Hoy»; desde ahí se va a su torno a arreglarlo. */
   const [revisar, setRevisar] = useState<{ id: string, nombre: string } | null>(null)
@@ -101,6 +101,21 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
             {guardandoRev ? 'Guardando…' : 'Guardar'}</button></div>
         </Velo>
       )}
+      {/* EL ROSCO DEL EJERCICIO: todo lo que antes iba en chapas sobre la foto. */}
+      {rosco != null && (() => {
+        const o = ejercicios.find((x: any) => x.ei === rosco); if (!o) return null
+        const ej = o.ej, ei = o.ei
+        return <RoscoEjercicio ej={ej} ei={ei} pacienteId={pacienteId} noLoHizo={noHechos.includes(ei)}
+          itemMarcado={itemMarcado} onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)} onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
+          objetivosLib={objetivosLib} objsPac={objsPac}
+          onObjetivo={toggleObjetivo ? (oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre) : undefined}
+          setComent={setComent}
+          onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}
+          onCambiar={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
+          onVer={ej.ejercicio_id ? () => setCromo({ id: ej.ejercicio_id, ei, cambia: !ej.guardado }) : undefined}
+          onRevisar={ej.ejercicio_id ? () => { setRevisar({ id: ej.ejercicio_id, nombre: ej.nombre }); setNotaRev('') } : undefined}
+          onCerrar={() => setRosco(null)}/>
+      })()}
       {cromo && <CromoDeId id={cromo.id} paciente={paciente || null} onCerrar={() => setCromo(null)}
         onUsar={cromo.cambia && onCambiarA ? (nuevo: any) => { onCambiarA(cromo.ei, nuevo); setCromo(null) } : undefined}/>}
       {grupos.map(gr => (
@@ -205,28 +220,31 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
                 })()}
                 {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
                     para poder deshacerlo. */}
-                {/* Tocar la foto abre el cromo del ejercicio: cómo se hace, la animación y lo
-                    que lleva hecho este paciente. Para enseñárselo en sala. */}
-                <div onClick={() => ej.ejercicio_id && setCromo({ id: ej.ejercicio_id, ei, cambia: !ej.guardado })} title="Ver el cromo del ejercicio"
-                  style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: '0 0 12px 12px', cursor: ej.ejercicio_id ? 'zoom-in' : undefined,
+                {/* TOCAR LA FOTO ABRE SU ROSCO (RoscoEjercicio): bien hecho, feedbacks, notas,
+                    gráfica, no lo hizo y cambiar. El cromo, en el centro del rosco. */}
+                <div data-guia="taller-rosco" onClick={() => { if (!ordenando) setRosco(ei) }} title="Abrir su rosco"
+                  style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: '0 0 12px 12px', cursor: 'pointer',
                   overflow: 'hidden', boxShadow: '0 2px 10px rgba(38,40,37,.10)' }}>
                 {/* Su foto, o la figura con sus músculos, o el icono. */}
                 <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
                   radio={0} icono={34} alt={ej.nombre}/>
                 </div>
-                {/* CAMBIAR Y NO LO HIZO, EN UNA CHAPA. Las dos son "hoy no va como estaba
-                    previsto", asi que comparten boton: un menu con las dos. Si ya no lo hizo,
-                    la chapa lo dice y deshace con un toque. */}
-                <ChapaHoy noLoHizo={noLoHizo}
-                  onSustituir={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
-                  onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}
-                  onRevisar={ej.ejercicio_id ? () => { setRevisar({ id: ej.ejercicio_id, nombre: ej.nombre }); setNotaRev('') } : undefined}/>
-                <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
-                  onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)}
-                  onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
-                  objetivosLib={objetivosLib} objsPac={objsPac}
-                  onObjetivo={toggleObjetivo ? (oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre) : undefined}/>
-                <ChapaComentario pacienteId={pacienteId} ej={ej} ei={ei} setComent={setComent}/>
+                {/* SOBRE LA FOTO SOLO DOS SEÑALES (no se tocan: la foto abre el rosco).
+                    Arriba a la izquierda, cuántas cosas hace bien; a la derecha, un punto
+                    ámbar si tiene algo anotado. Y si no lo hizo, la chapa para deshacerlo. */}
+                {(() => {
+                  const its = ej.items || []
+                  const nb = its.filter((it: any, ii: number) => itemMarcado(ej.items_evaluados, typeof it === 'string' ? it : it?.texto, ii)).length
+                  const notas = String(ej.plan?.nota || '').trim() !== '' || String(ej.comentario || '').trim() !== ''
+                  return <>
+                    {its.length > 0 && <span title="Cosas que hace bien" style={{ ...chapa({ left: 5, top: 5, cursor: 'pointer', pointerEvents: 'none' }),
+                      ...(nb === its.length ? { background: 'var(--gd)', color: '#fff' } : nb > 0 ? { background: 'var(--amb)', color: '#fff' } : { background: 'var(--w)', color: 'var(--gr)' }) }}>
+                      {nb}/{its.length}</span>}
+                    {notas && <span title="Tiene algo anotado" style={{ ...chapa({ right: 5, top: 5, minWidth: 0, width: 14, height: 14, padding: 0, pointerEvents: 'none' }), background: 'var(--amb)' }}/>}
+                    {noLoHizo && onNoHecho && <button type="button" onClick={e => { e.stopPropagation(); onNoHecho(ei) }} title="No lo hizo · pulsa para deshacer"
+                      style={chapa({ left: '50%', top: '42%', transform: 'translateX(-50%)', background: 'var(--gr)', color: '#fff', fontSize: 11.5, padding: '0 10px' })}>No lo hizo ↺</button>}
+                  </>
+                })()}
                 {!desplegar && <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
                   mutarSerie={mutarSerie} desmarcarEj={desmarcarEj} addSerie={addSerie} quitarSerie={quitarSerie}/>}
               </div>
@@ -373,46 +391,6 @@ function ObjetivosEj({ ids, objetivosLib }: { ids: string[], objetivosLib: any[]
   )
 }
 
-
-/**
- * "HOY NO VA COMO ESTABA": cambiar el ejercicio solo hoy o marcar que no lo hizo.
- * Arriba a la derecha, donde antes iba la chapa de feedbacks (que ahora va con la
- * de ejecucion). Si no lo hizo, la chapa lo dice y un toque lo deshace.
- */
-function ChapaHoy({ noLoHizo, onSustituir, onNoHecho, onRevisar }: { noLoHizo: boolean, onSustituir?: () => void, onNoHecho?: () => void, onRevisar?: () => void }) {
-  const [abierto, setAbierto] = useState(false)
-  const ancla = useRef<HTMLButtonElement>(null)
-  if (!onSustituir && !onNoHecho && !onRevisar) return null
-  if (noLoHizo) return (
-    <button type="button" onClick={e => { e.stopPropagation(); onNoHecho?.() }} aria-pressed
-      title="No lo hizo · pulsa para deshacer"
-      style={chapa({ right: 5, top: 5, background: 'var(--gr)', color: '#fff' })}>No lo hizo ↺</button>
-  )
-  const opcion = (icono: string, texto: string, fn?: () => void) => fn && (
-    <button type="button" onClick={() => { setAbierto(false); fn() }}
-      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 6px', border: 'none',
-        background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, color: 'var(--n)',
-        borderRadius: 8, textAlign: 'left' }}
-      onMouseOver={e => (e.currentTarget.style.background = 'var(--bl)')}
-      onMouseOut={e => (e.currentTarget.style.background = 'none')}>
-      <span style={{ width: 22, textAlign: 'center', color: 'var(--gd)' }}>{icono}</span>{texto}
-    </button>
-  )
-  return (
-    <>
-      <button ref={ancla} type="button" data-guia="taller-nolohizo" onClick={e => { e.stopPropagation(); setAbierto(v => !v) }}
-        title="Cambiar solo hoy o marcar que no lo hizo"
-        style={chapa({ right: 5, top: 5, background: abierto ? 'var(--g)' : 'var(--w)', color: abierto ? '#fff' : 'var(--gd)' })}>⇄</button>
-      <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={210}>
-        {/* Solo hoy o para siempre se elige luego, en la ventana de cambiar. */}
-        {opcion('⇄', 'Cambiar ejercicio', onSustituir)}
-        {opcion('⊘', 'No lo hizo', onNoHecho)}
-        {/* Cualquier nivel: si el ejercicio está mal (foto, nombre, cómo se mide…), avisa. */}
-        {opcion('⚑', 'Revisar el ejercicio', onRevisar)}
-      </Flotante>
-    </>
-  )
-}
 
 /**
  * COMO SE MIDE, desde la sala ("Arreglar ejercicios"): una pastilla con lo que hay
