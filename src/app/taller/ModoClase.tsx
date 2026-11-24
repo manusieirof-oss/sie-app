@@ -1596,6 +1596,27 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * vez o lo prescrito; si lo hizo igual, no hay que escribir nada: se marca como hecha
    * hoy y se guarda. Otro toque la desmarca.
    */
+  /** DESMARCAR UN EJERCICIO: quita lo apuntado hoy en todas sus series y vuelve a gris
+      (punto de partida, como al llegar). Se borra el borrador de hoy para que al recargar
+      no salga otra vez marcado. Al finalizar cuenta como siempre: lo gris es lo que se hizo. */
+  function desmarcarEj(pid:string, ei:number){
+    const s = seleccionRef.current.find((x:any) => x.paciente.id === pid)
+    const ej = s?.datos?.[ei]
+    if (!s || !ej) return
+    const key = `${pid}_${ei}`
+    if (timers.current[key]) { clearTimeout(timers.current[key]); delete timers.current[key]; setPendientes(p=>Math.max(0,p-1)) }
+    setSeleccion(prev => prev.map((x:any)=>{
+      if (x.paciente.id!==pid) return x
+      const datos=[...x.datos]
+      datos[ei]={...datos[ei],hoy:{},guardado:false,precargado:true}
+      return {...x,datos}
+    }))
+    let q = supabase.from('registros_ejercicio').delete().eq('paciente_id', pid).eq('sesion_id', s.sesionId)
+      .eq('finalizado', false).eq('fecha', fecha)
+    q = ej.ejercicio_id ? q.eq('ejercicio_id', ej.ejercicio_id) : q.eq('ejercicio_nombre', ej.nombre)
+    q = ej.variante ? q.eq('variante', ej.variante) : q.is('variante', null)
+    q.then(({ error }: any) => { if (error) console.error('desmarcar', error.message) })
+  }
   function confirmarSerie(pid:string, ei:number, si:number, on:boolean){
     avisarGuia('serie')
     setSeleccion(prev => prev.map(s=>{
@@ -2016,7 +2037,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       )}
 
       {/* CUERPO */}
-      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, cargarCatalogo, claveHechos, confirmar, confirmarSerie, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
+      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (

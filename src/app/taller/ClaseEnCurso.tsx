@@ -4,6 +4,7 @@ import BarraMomento from '@/components/BarraMomento'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
 import MetodoParte from './MetodoParte'
+import { usePlegarAcabadas } from './plegarSolo'
 import { cargarMetodos, aplicarMetodo, METODOS_DEFECTO, type ValoresMetodo } from '@/lib/metodos'
 import { pulsoActivo, hayPulso } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
@@ -50,7 +51,10 @@ import { CAMPOS_MEDIDA, CAMPOS_SERIE, serieLlena, antesDeClase, sinEjerciciosBor
 // el archivo grande se queda con el estado y este solo pinta. Lo que necesita le llega
 // por props desde alli.
 export default function ClaseEnCurso(p: any) {
-  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, cargarCatalogo, claveHechos, confirmar, confirmarSerie, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
+  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
+  // Al acabar una parte (todo hecho o «No lo hizo»), se recoge sola. Ver plegarSolo.
+  usePlegarAcabadas(act ? [{ datos: act.datos || [], nh: act.sesionId ? leerNoHechos(act.paciente.id, act.sesionId) : [],
+    clave: (ei: number, parte: string) => `${act.paciente.id}|${ei}|${parte}` }] : [], plegadas, alternarPlegada)
   return (<>{seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
           {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
@@ -298,7 +302,7 @@ export default function ClaseEnCurso(p: any) {
               </div>
             ) : <RejillaParte pacienteId={act.paciente.id} ejercicios={delaParte}
               superserie={ej.parteObj?.modo==='superserie'}
-              mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
+              mutarSerie={mutarSerie} desmarcarEj={desmarcarEj} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
               addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined}
               setVolumen={cambiaEj ? setVolumen : undefined}

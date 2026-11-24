@@ -1,6 +1,7 @@
 'use client'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import { useEffect, useRef, useState } from 'react'
+import { usePlegarAcabadas } from './plegarSolo'
 import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
@@ -88,6 +89,9 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
   const plegar = (k: string) => setPlegadas(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
 
+  // Al acabar una parte, se recoge sola (plegarSolo).
+  usePlegarAcabadas(seleccion.filter(s => s.sesionId).map(s => ({ datos: s.datos || [], nh: a.noHechos(s.paciente.id, s.sesionId),
+    clave: (_ei: number, parte: string) => s.paciente.id + '|' + parte })), plegadas, plegar)
   const s0 = (pid: string) => seleccion.find(s => s.paciente.id === pid)
   const hechaSerie = (e: any, si: number) => Object.keys(e.hoy || {}).some(k => k.startsWith(si + '.'))
   // Misma regla que la tarjeta (lib/medida): eleccion de hoy, regimen y ultima vez.

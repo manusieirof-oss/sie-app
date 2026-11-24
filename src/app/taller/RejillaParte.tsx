@@ -42,7 +42,7 @@ const chapa = (pos: any): any => ({
   boxShadow: '0 1px 5px rgba(38,40,37,.20)', ...pos,
 })
 
-export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
+export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA, desplegar = false }: any) {
@@ -186,7 +186,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               {/* DESPLEGADO: las series salen a la izquierda de la foto (filtro del taller). */}
               <div style={desplegar ? { display: 'flex', alignItems: 'center', gap: 4 } : undefined}>
               {desplegar && <CasillaSeries desplegado pacienteId={pacienteId} ej={ej} ei={ei}
-                mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>}
+                mutarSerie={mutarSerie} desmarcarEj={desmarcarEj} addSerie={addSerie} quitarSerie={quitarSerie}/>}
               <div style={{ position: 'relative', display: 'block', ...(desplegar ? { flex: 1, minWidth: 0 } : {}) }}>
                 {/* ORDENANDO: flechas grandes encima de la foto para moverlo antes o después. */}
                 {ordenando && onMover && ej.pos != null && (() => {
@@ -227,7 +227,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   onObjetivo={toggleObjetivo ? (oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre) : undefined}/>
                 <ChapaComentario pacienteId={pacienteId} ej={ej} ei={ei} setComent={setComent}/>
                 {!desplegar && <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
-                  mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>}
+                  mutarSerie={mutarSerie} desmarcarEj={desmarcarEj} addSerie={addSerie} quitarSerie={quitarSerie}/>}
               </div>
               </div>
 

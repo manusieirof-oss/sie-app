@@ -29,7 +29,7 @@ const media = (xs: (number | null)[]) => {
   return Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10
 }
 
-export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie, quitarSerie, desplegado = false }: any) {
+export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, desmarcarEj, addSerie, quitarSerie, desplegado = false }: any) {
   const [abierto, setAbierto] = useState(false)
   // Bandas y escalas de esfuerzo, de Ajustes (una sola consulta por página).
   const [aj, setAj] = useState<AjustesMedida | null>(null)
@@ -120,14 +120,16 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
       if (v) mutarSerie(pacienteId, ei, si, c, v)
     }))
   }
-  /** El boton discreto de confirmar: un circulo pequeño con la palomita. */
+  /** El boton discreto de confirmar: un circulo pequeño con la palomita. MARCADO SE
+      PUEDE DESMARCAR: otro toque quita lo apuntado hoy (antes se quedaba bloqueado). */
+  const puedeDesmarcar = todoHecho && !!desmarcarEj
   const botonConfirmar = (pos?: any) => (
-    <button type="button" data-guia="taller-confirmar" disabled={todoHecho}
-      onClick={e => { e.stopPropagation(); confirmarTodas() }}
-      title={todoHecho ? 'Todas las series apuntadas' : 'Lo hizo tal cual: marcar todas las series como hechas'}
-      aria-label="Marcar todas las series como hechas"
+    <button type="button" data-guia="taller-confirmar" disabled={todoHecho && !puedeDesmarcar}
+      onClick={e => { e.stopPropagation(); if (todoHecho) desmarcarEj?.(pacienteId, ei); else confirmarTodas() }}
+      title={todoHecho ? (puedeDesmarcar ? 'Hecho · pulsa para desmarcarlo' : 'Todas las series apuntadas') : 'Lo hizo tal cual: marcar todas las series como hechas'}
+      aria-label={todoHecho ? 'Desmarcar las series' : 'Marcar todas las series como hechas'}
       style={{ width: 23, height: 23, borderRadius: '50%', padding: 0, flexShrink: 0,
-        display: 'grid', placeItems: 'center', cursor: todoHecho ? 'default' : 'pointer',
+        display: 'grid', placeItems: 'center', cursor: todoHecho && !puedeDesmarcar ? 'default' : 'pointer',
         border: '2px solid var(--w)', boxShadow: '0 1px 5px rgba(38,40,37,.20)',
         background: todoHecho ? 'var(--gd)' : 'var(--w)', color: todoHecho ? '#fff' : 'var(--gd)', ...pos }}>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10"/></svg>
@@ -243,7 +245,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
         {resumen}{mezclado ? ' ~' : ''}
       </button>
       {/* Al lado de la chapa: lo hizo tal cual, sin tener que abrirla. */}
-      {!todoHecho && botonConfirmar()}
+      {(!todoHecho || puedeDesmarcar) && botonConfirmar()}
       </div>
 
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)}
