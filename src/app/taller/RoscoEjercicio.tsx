@@ -151,39 +151,65 @@ export default function RoscoEjercicio(p: {
     </div>, document.body)
 }
 
-/** Sus últimas veces: el peso más alto de cada día (o repes, o segundos, o metros). */
+/** Sus últimas veces: la mejor serie de cada día. Con peso, la línea es el peso y cada
+    punto dice peso × repes (o × segundos); sin peso, la línea son las repes o el tiempo. */
 function Grafica({ pacienteId, ej }: { pacienteId: string, ej: any }) {
-  const [filas, setFilas] = useState<{ fecha: string, v: number }[] | null>(null)
+  const [filas, setFilas] = useState<{ fecha: string, v: number, et: string }[] | null>(null)
   const { carga, volumen } = partesMedida(ej.tipo_medida)
-  const campo = carga === 'kg' ? 'peso' : volumen === 'segundos' ? 'segundos' : volumen === 'metros' ? 'metros' : 'reps'
-  const unidad = campo === 'peso' ? 'kg' : campo === 'segundos' ? 's' : campo === 'metros' ? 'm' : 'repes'
+  const vol = volumen === 'segundos' ? 'segundos' : volumen === 'metros' ? 'metros' : 'reps'
+  const uVol = vol === 'segundos' ? 's' : vol === 'metros' ? 'm' : ''
+  const conPeso = carga === 'kg'
   useEffect(() => {
     if (!ej.ejercicio_id) { setFilas([]); return }
     supabase.from('registros_ejercicio').select('fecha,series').eq('paciente_id', pacienteId).eq('ejercicio_id', ej.ejercicio_id)
       .eq('finalizado', true).order('fecha', { ascending: false }).limit(12)
-      .then(({ data }) => setFilas((data || []).map((r: any) => ({ fecha: r.fecha,
-        v: Math.max(-1, ...((r.series || []) as any[]).map(s => num(s?.[campo]) ?? -1)) }))
-        .filter(x => x.v >= 0).reverse()))
-  }, [pacienteId, ej.ejercicio_id, campo])
-  const w = 360, h = 190
+      .then(({ data }) => {
+        const out: { fecha: string, v: number, et: string }[] = []
+        ;(data || []).forEach((r: any) => {
+          // La mejor serie del día: más peso y, a igual peso, más repes (o tiempo).
+          let mejor: any = null
+          ;((r.series || []) as any[]).forEach(x => {
+            const pe = num(x?.peso), vo = num(x?.[vol])
+            if (pe == null && vo == null) return
+            const k = conPeso ? [pe ?? -1, vo ?? -1] : [vo ?? -1, 0]
+            if (!mejor || k[0] > mejor.k[0] || (k[0] === mejor.k[0] && k[1] > mejor.k[1])) mejor = { k, pe, vo, banda: x?.banda }
+          })
+          if (!mejor) return
+          const v = conPeso ? mejor.pe : mejor.vo
+          if (v == null) return
+          const f = (n: number) => String(n).replace('.', ',')
+          const et = conPeso
+            ? `${f(mejor.pe)} kg${mejor.vo != null ? ` × ${f(mejor.vo)}${uVol ? ' ' + uVol : ''}` : ''}`
+            : `${carga === 'banda' && mejor.banda ? mejor.banda + ' · ' : ''}${f(mejor.vo)}${uVol ? ' ' + uVol : ''}`
+          out.push({ fecha: r.fecha, v, et })
+        })
+        setFilas(out.reverse())
+      })
+  }, [pacienteId, ej.ejercicio_id, vol, conPeso, carga, uVol])
+  const w = 380, h = 210
+  const queMide = conPeso ? `peso × ${vol === 'segundos' ? 'segundos' : vol === 'metros' ? 'metros' : 'repes'}` : vol === 'segundos' ? 'segundos' : vol === 'metros' ? 'metros' : 'repes'
   return <>
     <h2>Gráfica</h2>
     {filas === null ? <p className="re-sub">Trayendo sus veces…</p>
-      : filas.length < 2 ? <p className="re-sub">{filas.length === 1 ? `Solo lo ha hecho una vez: ${filas[0].v} ${unidad}.` : 'Aún no hay veces guardadas de este ejercicio.'}</p>
+      : filas.length < 2 ? <p className="re-sub">{filas.length === 1 ? `Solo lo ha hecho una vez: ${filas[0].et}.` : 'Aún no hay veces guardadas de este ejercicio.'}</p>
       : (() => {
-          const max = Math.max(...filas.map(f => f.v)) * 1.15 || 1, min = 0
-          const pts = filas.map((f, i) => [24 + i * (w - 48) / (filas.length - 1), h - 30 - (f.v - min) / (max - min) * (h - 56)])
+          const max = Math.max(...filas.map(f => f.v)) * 1.18 || 1
+          const pts = filas.map((f, i) => [34 + i * (w - 68) / (filas.length - 1), h - 30 - f.v / max * (h - 62)])
           return <>
-            <p className="re-sub">Sus últimas {filas.length} veces ({unidad}, lo más alto de cada día).</p>
-            <svg viewBox={`0 0 ${w} ${h}`} width="100%" role="img" aria-label={`Evolución en ${unidad}`}>
+            <p className="re-sub">Sus últimas {filas.length} veces: la mejor serie de cada día ({queMide}).</p>
+            <svg viewBox={`0 0 ${w} ${h}`} width="100%" role="img" aria-label={`Evolución: ${queMide}`}>
               <polyline points={pts.map(x => x.join(',')).join(' ')} fill="none" stroke="var(--g)" strokeWidth="3" strokeLinejoin="round"/>
               {pts.map((x, i) => <g key={i}>
                 <circle cx={x[0]} cy={x[1]} r="5" fill="#fff" stroke="var(--gd)" strokeWidth="2.5"/>
-                <text x={x[0]} y={x[1] - 11} fontSize="12" textAnchor="middle" fill="var(--gd)">{String(filas[i].v).replace('.', ',')}</text>
-                {(i === 0 || i === filas.length - 1) && <text x={x[0]} y={h - 8} fontSize="11" textAnchor="middle" fill="var(--grl)">
+                {/* Con muchos puntos, la etiqueta se alterna arriba y abajo para que no se monten. */}
+                <text x={x[0]} y={filas.length > 6 && i % 2 ? x[1] + 20 : x[1] - 11} fontSize="11.5" textAnchor="middle" fill="var(--gd)" fontWeight="600">{filas[i].et}</text>
+                {(i === 0 || i === filas.length - 1) && <text x={x[0]} y={h - 6} fontSize="11" textAnchor="middle" fill="var(--grl)">
                   {new Date(filas[i].fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</text>}
               </g>)}
             </svg>
+            <div className="re-tabla">
+              {filas.slice().reverse().map((f, i) => <div key={i}><span>{new Date(f.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span><b>{f.et}</b></div>)}
+            </div>
           </>
         })()}
   </>
@@ -223,6 +249,9 @@ const CSS = `
   .re-txt { width:100%; font-family:inherit; font-size:14px; line-height:1.45; padding:9px 10px; border:1.5px solid var(--bd); border-radius:12px; resize:vertical; min-height:80px }
   .re-ant { font-size:13px; color:var(--gr); padding:5px 0; border-top:1px solid var(--bl); display:flex; gap:9px; line-height:1.4 }
   .re-ant span { flex-shrink:0; width:50px; color:var(--grl); font-size:12px }
+  .re-tabla { margin-top:8px; font-size:13px }
+  .re-tabla div { display:flex; justify-content:space-between; padding:5px 2px; border-top:1px solid var(--bl) }
+  .re-tabla span { color:var(--grl) }
   .re-revisar { margin-top:16px; font-family:inherit; font-size:12.5px; color:var(--gr); background:none; border:0; padding:4px 0; cursor:pointer; text-align:left }
   .re-revisar:hover { color:var(--n) }
   @media (max-width:820px) { .re-zona.abierto { flex-direction:column; justify-content:flex-start; overflow:auto } .re-zona.abierto .re-rosco { width:min(300px, 76vw) } .re-panel { width:100%; max-height:none } }
