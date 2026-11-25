@@ -21,6 +21,8 @@ export default function CosasAMejorar({ pacienteId, objetivos = [], puede, onCam
   const [form, setForm] = useState<null | { modo: 'nuevo' | 'anadir', nombre: string, via: ViaOrigen, base: string | null, destino: string | null }>(null)
   const [guardando, setGuardando] = useState(false)
   const [verDesc, setVerDesc] = useState(false)
+  // PLEGADO DE ENTRADA: con muchas cosas a mejorar se comía la ficha. Se abre tocando el título.
+  const [abierto, setAbierto] = useState(false)
 
   async function cargar() {
     const ps = await propuestasDe(pacienteId)
@@ -55,10 +57,12 @@ export default function CosasAMejorar({ pacienteId, objetivos = [], puede, onCam
   return (
     <section className="cam">
       <style>{CSS}</style>
-      <div className="cam-cab">
-        <h3>Cosas a mejorar</h3>
-        <span>Lo que han dicho sus tests y el taller. Marca las que quieras y júntalas en un objetivo.</span>
-      </div>
+      <button type="button" className="cam-cab" onClick={() => setAbierto(a => !a)} aria-expanded={abierto}>
+        <h3>Cosas a mejorar <small>{pend.length}</small></h3>
+        <span>{abierto ? 'Lo que han dicho sus tests y el taller. Marca las que quieras y júntalas en un objetivo.' : 'Toca para verlas'}</span>
+        <i style={{ transform: abierto ? 'rotate(180deg)' : 'none' }}>▾</i>
+      </button>
+      {abierto && <>
 
       {puede && sugs.slice(0, 2).map(sg => (
         <div key={sg.objetivo.id} className="cam-sug">
@@ -96,6 +100,8 @@ export default function CosasAMejorar({ pacienteId, objetivos = [], puede, onCam
             {puede && <button type="button" className="btn btn-t btn-sm" onClick={async () => { await cambiarEstado([p.id], 'pendiente'); cargar() }}>Recuperar</button>}</div>
         ))}
       </div>}
+
+      </>}
 
       {form && createPortal(
         <div className="modal-bg" style={{ zIndex: 150 }} onClick={e => { if (e.target === e.currentTarget) setForm(null) }}>
@@ -136,8 +142,10 @@ export default function CosasAMejorar({ pacienteId, objetivos = [], puede, onCam
 
 const CSS = `
   .cam { border:1px solid var(--bd); border-radius:16px; padding:14px 16px; background:#fff; margin:0 0 16px }
-  .cam-cab { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; margin-bottom:8px }
+  .cam-cab { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; width:100%; background:none; border:0; padding:0; text-align:left; font-family:inherit; cursor:pointer }
   .cam-cab h3 { margin:0; font-size:15px; font-weight:600; color:var(--n) }
+  .cam-cab h3 small { font-size:12px; font-weight:600; color:#fff; background:var(--g); border-radius:99px; padding:1px 8px; margin-left:4px }
+  .cam-cab i { font-style:normal; margin-left:auto; color:var(--gr); transition:transform .15s }
   .cam-cab span { font-size:12.5px; color:var(--gr) }
   .cam-sug { background:var(--ambl); border:1px solid #E7D29A; border-radius:12px; padding:9px 12px; font-size:13px; color:#6B5214; margin-bottom:8px; display:flex; flex-wrap:wrap; align-items:center; gap:8px }
   .cam-sug b { color:#4E3C0E }
