@@ -5,6 +5,7 @@ import { revisarMetasDeTest } from './metasVia'
 import { revisarMetas } from './metas'
 import { hoyISO, aISO } from '@/lib/fechas'
 import { evaluacionAbiertaPara } from './evaluaciones'
+import { guardarHallazgos, type Hallazgo } from './propuestas'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -671,6 +672,8 @@ export type ResultadoRegistro = {
   logrados: number
   /** Metas medibles que este resultado ha dado por alcanzadas. */
   metasCerradas: number
+  /** Cosas a mejorar nuevas que ha dejado (lib/propuestas). */
+  propuestas?: number
   /**
    * Objetivos que este resultado ha ABIERTO.
    *
@@ -840,6 +843,24 @@ export async function registrarResultadoTest(
   logrados += ov.logrados
   abiertos += ov.abiertos
 
+  // COSAS A MEJORAR: lo que ha salido hoy (cada ítem marcado, la banda o el test
+  // entero). Salir bien en ese lado resuelve lo que quedaba pendiente. Ver lib/propuestas.
+  let propuestas = 0
+  if (!soloMide(items) && resultado !== 'sin_realizar') {
+    const hz: Hallazgo[] = []
+    if (resultado === 'positivo') {
+      if (esSuma(test) || esBaremo(test)) {
+        if (banda?.etiqueta) hz.push({ tipo: 'test', ref: refDeBanda(test.id, banda.etiqueta), banda: banda.etiqueta, texto: banda.etiqueta })
+        else hz.push({ tipo: 'test', ref: test.id, texto: 'Ha salido positivo' })
+      } else {
+        items.forEach((it, i) => { if (it.marcado) { const m = textoMedida(it); hz.push({ tipo: 'test_item', ref: test.id + ':' + i, item: it.nombre, texto: it.nombre + (m ? ` (${m})` : '') }) } })
+        if (!hz.length) hz.push({ tipo: 'test', ref: test.id, texto: 'Ha salido positivo' })
+      }
+    }
+    const pr = await guardarHallazgos(pacienteId, test, lado || null, hz, datos.contexto)
+    propuestas = pr.nuevas; logrados += pr.logrados
+  }
+
   // LAS METAS. Es lo que cierra —o reabre— un objetivo con número: el listón de ESTE
   // paciente sobre un ítem que ya lo mide. Ver `lib/metasVia`. Va aquí por lo mismo que
   // todo lo demás: un test es el único momento en que un valor puede haber cambiado.
@@ -853,7 +874,7 @@ export async function registrarResultadoTest(
 
   // Las FASES ya no se recalculan: los objetivos no las tienen. `lib/fases.ts` sigue
   // entero en el repositorio por si vuelven, pero nadie lo llama.
-  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null, fases: [] }
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, propuestas, puntuacion, banda: banda?.etiqueta || null, fases: [] }
 }
 
 /**
@@ -974,7 +995,11 @@ async function cerrarObjetivosQueEvalua(
   const { data: suyos } = await supabase.from('pacientes_objetivos')
     .select('objetivo_id,vias,logrado').eq('paciente_id', pacienteId).in('objetivo_id', ids)
 
-  if (resultado === 'positivo') {
+  /* YA NO SE LE PONEN OBJETIVOS NUEVOS (nov 2026). Lo que sale en el test queda como
+     «cosas a mejorar» (lib/propuestas) y en la ficha se juntan en un objetivo. Aquí
+     solo se reabren o cierran los que YA tiene. */
+  const ABRIR_NUEVOS = false as boolean
+  if (resultado === 'positivo' && ABRIR_NUEVOS) {
     const tiene = new Set((suyos || []).map((r: any) => r.objetivo_id))
     const nuevos = ids.filter(id => !tiene.has(id))
     if (nuevos.length > 0) {

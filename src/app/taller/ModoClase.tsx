@@ -22,7 +22,8 @@ import { enModoPractica } from '@/lib/practica'
 import { partesMedida, idMedida } from '@/lib/medida'
 import { normalizar } from '@/lib/texto'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
-import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
+import { guardarVias, resolverVia } from '@/lib/objetivos'
+import { propuestaDeEjecucion, sugeridosTaller } from '@/lib/propuestas'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
 import { rutaDeAsignacion } from '@/lib/asignarCita'
 import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, registrarCambio, type CambioSesion } from '@/lib/cambioSesion'
@@ -216,6 +217,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   const SKEY = 'taller_clase'
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
+  /** Los objetivos que el taller ya ha dejado como «cosa a mejorar» (lib/propuestas), por paciente. */
+  const [sugPorPaciente, setSugPorPaciente] = useState<Record<string,string[]>>({})
   const [ctxPorPaciente, setCtxPorPaciente] = useState<Record<string,any>>({})
   /**
    * LO QUE HAY QUE MEDIRLE HOY.
@@ -727,6 +730,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   async function cargarObjsPaciente(pid: string) {
     const { data } = await supabase.from('pacientes_objetivos').select('objetivo_id,origen,vias').eq('paciente_id', pid)
     setObjsPorPaciente(prev => ({ ...prev, [pid]: data||[] }))
+    const sug = await sugeridosTaller(pid)
+    setSugPorPaciente(prev => ({ ...prev, [pid]: sug }))
   }
 
   async function toggleObjetivo(pid: string, objetivoId: string, ejercicioId?: string, ejercicioNombre?: string) {
@@ -746,9 +751,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         if (!r.ok) { alert('Error: '+r.error); return }
       }
     } else {
-      const nuevaVia = { tipo:'ejecucion', ref, etiqueta, resuelto:false, fecha_resuelto:null }
-      const r = await abrirObjetivo(pid, objetivoId, nuevaVia, 'ejecucion')
-      if (!r.ok) { alert('Error: '+r.error); return }
+      /* SI NO LO TIENE, YA NO SE LE PONE: queda como «cosa a mejorar» con este objetivo
+         sugerido, y en su ficha se decide (lib/propuestas). Otro toque la quita. */
+      const nom = objetivosLib.find((o:any)=>o.id===objetivoId)?.nombre || 'Objetivo'
+      await propuestaDeEjecucion(pid, objetivoId, ref, nom, ejercicioNombre)
+      void etiqueta
     }
     await cargarObjsPaciente(pid)
   }
@@ -2051,7 +2058,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       )}
 
       {/* CUERPO */}
-      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
+      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (

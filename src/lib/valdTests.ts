@@ -125,7 +125,7 @@ export async function aplicarDynamo(): Promise<Record<string, ResumenAplicado>> 
       if (!res.ok) { r.errores.push(res.error); continue }
       r.resultados++
       if (res.resultado === 'positivo') r.positivos++
-      r.abiertos += res.abiertos; r.logrados += res.logrados
+      r.abiertos += res.abiertos + (res.propuestas || 0); r.logrados += res.logrados
     }
   }
 
@@ -140,7 +140,7 @@ export function textoResumen(r?: ResumenAplicado): string {
   if (!r || (!r.resultados && !r.errores.length)) return ''
   const p = [`${r.resultados} resultado${r.resultados === 1 ? '' : 's'} apuntado${r.resultados === 1 ? '' : 's'} en SIE`]
   if (r.positivos) p.push(`${r.positivos} positivo${r.positivos === 1 ? '' : 's'}`)
-  if (r.abiertos) p.push(`${r.abiertos} objetivo${r.abiertos === 1 ? '' : 's'} abierto${r.abiertos === 1 ? '' : 's'}`)
+  if (r.abiertos) p.push(`${r.abiertos} cosa${r.abiertos === 1 ? '' : 's'} a mejorar o objetivo${r.abiertos === 1 ? '' : 's'} reabierto${r.abiertos === 1 ? '' : 's'}`)
   if (r.logrados) p.push(`${r.logrados} objetivo${r.logrados === 1 ? '' : 's'} logrado${r.logrados === 1 ? '' : 's'}`)
   if (r.errores.length) p.push(`${r.errores.length} con error: ${r.errores[0]}`)
   return 'DynaMo: ' + p.join(' · ')

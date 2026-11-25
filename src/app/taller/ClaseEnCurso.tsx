@@ -51,7 +51,7 @@ import { CAMPOS_MEDIDA, CAMPOS_SERIE, serieLlena, antesDeClase, sinEjerciciosBor
 // el archivo grande se queda con el estado y este solo pinta. Lo que necesita le llega
 // por props desde alli.
 export default function ClaseEnCurso(p: any) {
-  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
+  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
   // Al acabar una parte (todo hecho o «No lo hizo»), se recoge sola. Ver plegarSolo.
   usePlegarAcabadas(act ? [{ datos: act.datos || [], nh: act.sesionId ? leerNoHechos(act.paciente.id, act.sesionId) : [],
     clave: (ei: number, parte: string) => `${act.paciente.id}|${ei}|${parte}` }] : [], plegadas, alternarPlegada)
@@ -310,7 +310,7 @@ export default function ClaseEnCurso(p: any) {
               setVolumen={cambiaEj ? setVolumen : undefined}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
-              objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
+              objetivosLib={objetivosLib} objsPac={[...(objsPorPaciente[act.paciente.id]||[]), ...((sugPorPaciente||{})[act.paciente.id]||[]).map((id:string)=>({ objetivo_id: id, propuesta: true }))]}
               toggleObjetivo={cambiaEj ? toggleObjetivo : undefined}
               repetidos={repPorPaciente[act.paciente.id] || {}}
               paciente={{ id: act.paciente.id, nombre: act.paciente.nombre }}

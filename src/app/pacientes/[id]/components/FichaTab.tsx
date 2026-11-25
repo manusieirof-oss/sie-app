@@ -31,6 +31,7 @@ import HorarioFavorito from './HorarioFavorito'
 import CambiarSala from './CambiarSala'
 import FichaPorUbicar from './FichaPorUbicar'
 import FichaObjetivosResumen from './FichaObjetivosResumen'
+import CosasAMejorar from './CosasAMejorar'
 import { avisarGuia } from '@/lib/guiaEventos'
 import { usePuede } from '@/lib/permisos'
 
@@ -1332,6 +1333,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           Dentro van ordenados por vía, que es el orden en que se explican. */}
       {/* DE UN VISTAZO: su programación (el cubo) y lo que tiene para entrenar (el cuerpo). */}
       {resumen && !editando && <ProgramaPaciente pacienteId={pac.id} alerta={(alertas?.length||0)>0} lateral={columnaIzq} ampliado={abiertoIzq}/>}
+      {/* COSAS A MEJORAR: lo que dicen sus tests, antes de ser objetivo (lib/propuestas). */}
+      {!editando && pac?.id && <CosasAMejorar pacienteId={pac.id} puede={puedeObj} onCambio={cargarObjetivos}
+        objetivos={objetivosTrabajo.map((o:any)=>({ id: o.id, nombre: o.nombre, logrado: !!o.logrado }))}/>}
       <FichaObjetivosResumen {...{ filtroVia, hayObjetivos, objPide, objetivosActivos, objetivosLogrados, objetivosTrabajo, orden, pintarMoneda, resumen, setBuscarObj, setFiltroVia, setModalAnadir, setOrden, setPideTexto, setSelObj, setViaAnadir, setZonaObj, tipoVal, valoracion }} />
 
       {/* EL PANEL DEL OBJETIVO. Encima y no debajo de la rejilla: abriendo uno se

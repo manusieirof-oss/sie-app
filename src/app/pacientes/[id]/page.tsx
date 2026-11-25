@@ -45,6 +45,9 @@ import ModalMomento from './ModalMomento'
 import { avisarGuia } from '@/lib/guiaEventos'
 
 
+/** El aviso de «positivo sin objetivo enganchado» ya no hace falta (lib/propuestas). */
+const AVISAR_SIN_OBJETIVO = false as boolean
+
 export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
@@ -527,7 +530,8 @@ export default function FichaPacientePage() {
       // va a aparecer nada. Casi siempre es que el objetivo cuelga de otro ítem —una
       // casilla que nadie marcó— en vez del que ha dado positivo. Antes esto pasaba en
       // silencio y parecía que la app se había tragado el resultado.
-      if (r.resultado === 'positivo' && r.abiertos === 0) {
+      // Ya no hace falta avisar: lo que sale queda en «Cosas a mejorar» de su ficha.
+      if (AVISAR_SIN_OBJETIVO && r.resultado === 'positivo' && r.abiertos === 0) {
         // En un test de puntuación el objetivo no cuelga de ningún ítem: cuelga del test
         // entero, y se engancha desde la ficha del objetivo. Mandar ahí a buscar "el ítem
         // que ha dado positivo" sería mandar a buscar algo que no existe.
