@@ -95,9 +95,9 @@ export function camposDelEjercicio(ej: any, isometrico: boolean): string[] {
   let c: string[] = elegido
     ? [...(p.carga === 'kg' ? ['peso'] : p.carga === 'banda' ? ['banda'] : []), elegido]
     : camposSerie(base, { isometrico })
-  const conCarga = (ej?.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
-    || (ej?.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
-  if (c.includes('segundos') && p.carga === 'kg' && !conCarga) c = c.filter(x => x !== 'peso')
+  /* LLEVAR PESO ES COSA DEL EJERCICIO, NO DE SI VA POR REPES O POR SEGUNDOS. Antes, por
+     segundos y sin peso apuntado se quitaba la casilla de kg, así que al cambiar de reps a
+     segundos (o al revés) el peso aparecía o desaparecía. Ahora la carga manda siempre. */
   return c
 }
 

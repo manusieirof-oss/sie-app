@@ -350,7 +350,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    */
   function medida(ej: any): string[] {
     const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
-    const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_reps'
+    // La CARGA (peso, goma o nada) es del ejercicio: de la biblioteca. De la sesión, solo
+    // si va por repes, segundos o metros.
+    const pS = ej?.tipo_medida ? partesMedida(ej.tipo_medida) : null, pB = bib?.tipo_medida ? partesMedida(bib.tipo_medida) : null
+    const base = pS || pB ? idMedida((pB || pS)!.carga, (pS || pB)!.volumen) : 'peso_reps'
     // Los campos de carga × volumen (lib/medida). Isométrico se prescribe en segundos
     // aunque el ejercicio vaya por repeticiones. Igual que en el taller.
     // Por tiempo también los estiramientos (estático, FNP…): ver `ejecucionPorTiempo`.

@@ -125,7 +125,7 @@ export default function ParteEjercicios(p: any) {
                           title="Cantidad, para todos" onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
                         <select value={uComun || ''} title="Unidad, para todos"
                           onChange={e=>{ const v=e.target.value as any; if (!v) return
-                            todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } }) }}>
+                            todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(bib?.tipo_medida||x.tipo_medida||'peso_reps').carga, v) } }) }}>
                           {!uComun && <option value="">var.</option>}
                           <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
                         </select>
@@ -374,7 +374,8 @@ export default function ParteEjercicios(p: any) {
                       {/* LA UNIDAD, pegada al número y cambiable: reps, seg o m. */}
                       {(()=>{
                         const bib = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
-                        const { carga } = partesMedida(ej.tipo_medida || bib?.tipo_medida || 'peso_reps')
+                        // La carga es del ejercicio (biblioteca); aquí solo se elige reps, seg o m.
+                        const { carga } = partesMedida(bib?.tipo_medida || ej.tipo_medida || 'peso_reps')
                         const actual = med.includes('segundos') ? 'segundos' : med.includes('metros') ? 'metros' : 'reps'
                         return (
                           <select value={actual} title="Por repeticiones, por tiempo o por distancia"

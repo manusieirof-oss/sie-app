@@ -19,7 +19,7 @@ import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfect
 import { textoDescanso } from '@/lib/capacidades'
 import { repetidosSemana, type Repetido, diasDeFalta } from '@/lib/repetidosSemana'
 import { enModoPractica } from '@/lib/practica'
-import { partesMedida } from '@/lib/medida'
+import { partesMedida, idMedida } from '@/lib/medida'
 import { normalizar } from '@/lib/texto'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
@@ -1205,7 +1205,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
         const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
-        e.tipo_medida = e.tipo_medida_ses || t?.tipo_medida || 'peso_reps'
+        /* LA CARGA (peso, goma o peso corporal) ES DEL EJERCICIO: sale siempre de la biblioteca.
+           De la sesión solo se coge si va por repes, segundos o metros, que eso sí es del plan.
+           Antes mandaba la sesión entera y el taller decía lo contrario que el torno. */
+        const pSes = e.tipo_medida_ses ? partesMedida(e.tipo_medida_ses) : null, pBib = t?.tipo_medida ? partesMedida(t.tipo_medida) : null
+        e.tipo_medida = pSes || pBib ? idMedida((pBib || pSes)!.carga, (pSes || pBib)!.volumen) : 'peso_reps'
         // LA FOTO, LA DE LA BIBLIOTECA. La sesión guarda una copia de cuando se metió el
         // ejercicio; si luego se cambió en la biblioteca, el taller seguía con la vieja.
         if (t?.imagen_url) e.imagen_url = t.imagen_url
@@ -1220,11 +1224,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
            algo principal —cómo se mide: con peso, con goma o sin carga—, también. El
            nombre o la foto no avisan: eso no cambia lo que se hace. */
         e._perdido = !!e.ejercicio_id && !t
-        const cs = e.tipo_medida_ses ? partesMedida(e.tipo_medida_ses).carga : null, cb = t?.tipo_medida ? partesMedida(t.tipo_medida).carga : null
-        const CARGA: Record<string, string> = { kg: 'con peso', banda: 'con goma', corporal: 'sin carga' }
-        e._cambio = cs && cb && cs !== cb ? `Ahora se mide ${CARGA[cb]} (en la sesión, ${CARGA[cs]})` : null
-        e._tipoBib = e._cambio ? t.tipo_medida : null
-        e._cargaBib = e._cambio ? CARGA[cb!] : null
+        // Ya no hace falta avisar de «ahora se mide con peso»: la carga de la biblioteca manda (ver arriba).
+        e._cambio = null; e._tipoBib = null; e._cargaBib = null
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
