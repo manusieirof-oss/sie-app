@@ -115,8 +115,10 @@ export async function sugerenciasPara(props: Propuesta[], yaTiene: string[]) {
     .sort((a, b) => b.ids.length - a.ids.length)
 }
 
-/** La vía de un objetivo que sale de una cosa a mejorar. */
-function viaDe(p: Propuesta, mov: string | null = null): Via {
+/** La vía de un objetivo que sale de una cosa a mejorar. Las que venían de un objetivo
+    puesto a mano ('objetivo') no tienen test detrás: no son vía (se cierra a mano). */
+function viaDe(p: Propuesta, mov: string | null = null): Via | null {
+  if (p.tipo === 'objetivo') return null
   if (p.tipo === 'ejecucion') return { tipo: 'ejecucion', ref: p.ref.split('|')[0], etiqueta: p.origen || 'Ejecución', resuelto: false, fecha_resuelto: null } as Via
   return { tipo: p.tipo, ref: p.ref, etiqueta: `Test: ${p.origen || 'test'}${p.item ? ' · ' + p.item : p.banda ? ' · ' + p.banda : ''}`,
     resuelto: false, fecha_resuelto: null, lado: p.lado || null, mov } as Via
@@ -142,7 +144,7 @@ export async function crearObjetivoCon(pacienteId: string, props: Propuesta[], o
     const r = await supabase.from('objetivos').insert({ nombre, descripcion: null, articulacion_id: null, etiquetas: [], movimientos: [], activo: true }).select('id').single()
     if (r.error || !r.data) return { ok: false as const, error: r.error?.message || 'No se pudo crear el objetivo' }
     objetivoId = r.data.id as string
-    const filas = props.filter(p => p.test_id && p.tipo !== 'ejecucion').map(p => ({ objetivo_id: objetivoId, test_id: p.test_id,
+    const filas = props.filter(p => p.test_id && (p.tipo === 'test' || p.tipo === 'test_item')).map(p => ({ objetivo_id: objetivoId, test_id: p.test_id,
       ...(p.tipo === 'test_item' ? { item: p.item } : {}), ...(p.banda ? { banda: p.banda } : {}) }))
     const unicas = filas.filter((f, i) => filas.findIndex(g => JSON.stringify(g) === JSON.stringify(f)) === i)
     if (unicas.length) {
@@ -151,7 +153,7 @@ export async function crearObjetivoCon(pacienteId: string, props: Propuesta[], o
     }
   }
   const retrato = o.base ? await retratoObjetivo(objetivoId!) : { descripcion: null, movimientos: [] }
-  const vias = props.map(p => viaDe(p, movs[p.id] || null))
+  const vias = props.map(p => viaDe(p, movs[p.id] || null)).filter(Boolean) as Via[]
   const { error } = await supabase.from('pacientes_objetivos').insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen: 'propuestas',
     vias, vias_origen: [o.via], ...retrato, nombre })
   if (error) return { ok: false as const, error: error.message }
@@ -166,7 +168,7 @@ export async function anadirAObjetivo(pacienteId: string, objetivoId: string, pr
   const { data: po, error: e1 } = await supabase.from('pacientes_objetivos').select('vias,logrado').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).maybeSingle()
   if (e1 || !po) return { ok: false as const, error: e1?.message || 'No tiene ese objetivo' }
   const vias: any[] = Array.isArray(po.vias) ? [...po.vias] : []
-  props.forEach(p => { const v = viaDe(p); if (!vias.some(x => x.tipo === v.tipo && x.ref === v.ref && (x.lado || null) === ((v as any).lado || null))) vias.push(v) })
+  props.forEach(p => { const v = viaDe(p); if (v && !vias.some(x => x.tipo === v.tipo && x.ref === v.ref && (x.lado || null) === ((v as any).lado || null))) vias.push(v) })
   const r: any = await guardarVias(pacienteId, objetivoId, vias, { logradoAntes: !!po.logrado, contexto: 'la ficha' })
   if (r && r.ok === false) return { ok: false as const, error: r.error || 'No se pudo guardar' }
   await supabase.from('propuestas_mejora').update({ estado: 'en_objetivo', objetivo_id: objetivoId }).in('id', props.map(p => p.id))
