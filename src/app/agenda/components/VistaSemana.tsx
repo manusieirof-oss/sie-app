@@ -1,11 +1,14 @@
 'use client'
+import { colorHueco } from '@/lib/semaforoAgenda'
 import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
 import AvisoTareas from './AvisoTareas'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { responsableDe } from '@/lib/turnos'
 
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'], turnos=[], tareas=[], perfiles=[], completarTarea }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, semaforo=false, salas=['A','B'], turnos=[], tareas=[], perfiles=[], completarTarea }: {
+  /** Huecos por colores (lib/semaforoAgenda). */
+  semaforo?: boolean
   fecha: string
   tareas?: any[]
   perfiles?: any[]
@@ -58,7 +61,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
     const quien = resp.lista.map((t:any)=>(t.perfil?.nombre||'').trim()).filter(Boolean).join(' · ')
     if (n===0) {
       return (
-        <div className="sem-vacia" title={`Sala ${sala} · nueva cita`}
+        <div className="sem-vacia" title={`Sala ${sala} · nueva cita`} style={semaforo ? { background: colorHueco(0, MAX).fondo, color: colorHueco(0, MAX).texto } : undefined}
           onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h,sala}));setModal(true)}}>+</div>
       )
     }
@@ -66,7 +69,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
     const atenuar = soloHueco && lleno
     const pct = Math.min(100, Math.round(n/MAX*100))
     return (
-      <div className={`sem-clase ${lleno?'llena':''}`} style={{opacity:atenuar?0.3:1}}>
+      <div className={`sem-clase ${lleno?'llena':''}`} style={{opacity:atenuar?0.3:1, ...(semaforo ? { background: colorHueco(n, MAX).fondo, outline: `1.5px solid ${colorHueco(n, MAX).borde}` } : {})}}>
         <div className="sem-cab" title={lleno?'Completa':`${MAX-n} libre${MAX-n>1?'s':''}`}>
           {salas.length>1&&<b>{sala}</b>}
           <span className="ag-barra" style={{flex:1,width:'auto'}}><i style={{width:pct+'%'}}/></span>

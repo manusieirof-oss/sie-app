@@ -10,9 +10,12 @@ import { hoyISO } from '@/lib/fechas'
 import ResponsableFranja from './ResponsableFranja'
 import { responsableDe } from '@/lib/turnos'
 import { asistencias, cuotas, TXT_CUOTA, type LenteAgenda, type Asistencia, type EstadoCuota } from '@/lib/lenteAgenda'
+import { colorHueco } from '@/lib/semaforoAgenda'
 import { LBL_ALERTA } from '@/lib/alertas'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true, miUserId, lente='normal' }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true, miUserId, lente='normal', semaforo=false }: {
+  /** Huecos por colores (lib/semaforoAgenda). */
+  semaforo?: boolean
   /** Qué se ve junto a cada persona (lib/lenteAgenda). */
   lente?: LenteAgenda
   /** Quien está dentro: sus clases salen resaltadas. */
@@ -241,7 +244,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                     <div key={sala} className="ag-franja">
                       {filtrando || consulta
                         ? <div className="ag-vacia quieta">·</div>
-                        : <div className="ag-vacia" onClick={()=>abrirNueva(h,sala)}>+ libre</div>}
+                        : <div className="ag-vacia" onClick={()=>abrirNueva(h,sala)}
+                            style={semaforo && !filtrando ? { background: colorHueco(0, MAX).fondo, borderColor: colorHueco(0, MAX).borde, color: colorHueco(0, MAX).texto } : undefined}>+ libre</div>}
                     </div>
                   )
                 }
@@ -251,7 +255,9 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                     {/* SU CLASE, RESALTADA: con dos salas a la vez, que se vea cuál lleva. */}
                     <div className={`ag-clase ${sobre?'sobre':scActivas.length>=MAX?'llena':''}`}
                       style={(()=>{ const yo=(perfiles||[]).find((p:any)=>p.user_id===miUserId)?.id
-                        return yo && responsableDe(turnos, fecha, h, sala).lista.some(t=>t.perfil_id===yo) ? { boxShadow:'0 0 0 2px var(--g)', borderRadius:10 } : undefined })()}>
+                        const sem = semaforo && !filtrando ? colorHueco(scActivas.length, MAX) : null
+                        const marca = yo && responsableDe(turnos, fecha, h, sala).lista.some(t=>t.perfil_id===yo) ? { boxShadow:'0 0 0 2px var(--g)', borderRadius:10 } : {}
+                        return { ...marca, ...(sem ? { background: sem.fondo, outline: `1.5px solid ${sem.borde}`, borderRadius: 10 } : {}) } })()}>
                       <div className="ag-clase-cab">
                         {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
                         <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
