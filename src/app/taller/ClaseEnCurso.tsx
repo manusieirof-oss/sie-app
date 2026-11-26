@@ -308,7 +308,7 @@ export default function ClaseEnCurso(p: any) {
             ) : <RejillaParte pacienteId={act.paciente.id} ejercicios={delaParte}
               superserie={ej.parteObj?.modo==='superserie'}
               mutarSerie={mutarSerie} desmarcarEj={desmarcarEj} setMaterial={cambiaEj ? setMaterial : undefined}
-              onAceptarMedida={(editaPlan || cambiaEj) ? (pos: string, t: string, n?: string) => aceptarMedida(act.paciente.id, pos, t, n) : undefined}
+              onAceptarMedida={editaPlan ? (pos: string, t: string, n?: string) => aceptarMedida(act.paciente.id, pos, t, n) : undefined}
               setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
               addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined}

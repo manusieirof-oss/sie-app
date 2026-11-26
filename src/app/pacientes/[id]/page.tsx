@@ -444,8 +444,9 @@ export default function FichaPacientePage() {
       peso_kg:form.peso_kg, notas_fijas:form.notas_fijas,
       fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null,
       // FACTURAR A OTRO (empresa, residencia…): sus facturas salen a ese nombre (sql/facturar-a-otro.sql).
-      facturar_nombre:(form.facturar_nombre||'').trim()||null, facturar_nif:(form.facturar_nif||'').trim()||null,
-      facturar_direccion:(form.facturar_direccion||'').trim()||null,
+      // Solo quien cobra (nivel de cobros): son datos de facturación.
+      ...(puede('cobros') ? { facturar_nombre:(form.facturar_nombre||'').trim()||null, facturar_nif:(form.facturar_nif||'').trim()||null,
+      facturar_direccion:(form.facturar_direccion||'').trim()||null } : {}),
     }).eq('id',id)
     // Se cerraba el modo edición y se recargaba pasara lo que pasara, así que un guardado
     // rechazado se veía igual que uno correcto: los campos volvían a su valor anterior y
@@ -920,8 +921,8 @@ export default function FichaPacientePage() {
                 <option value="mujer">Mujer</option>
               </select>
               {/* FACTURAR A OTRO: si paga una empresa o un centro, sus facturas van a su nombre. */}
-              <div style={{gridColumn:'1 / -1',fontSize:11.5,opacity:.8,marginTop:4}}>Facturar a otra persona o empresa (si paga otro). Déjalo vacío si factura a su nombre.</div>
-              {[['facturar_nombre','Facturar a · nombre o empresa'],['facturar_nif','Facturar a · NIF/CIF'],['facturar_direccion','Facturar a · dirección']].map(([k,l])=>(
+              {puede('cobros') && <div style={{gridColumn:'1 / -1',fontSize:11.5,opacity:.8,marginTop:4}}>Facturar a otra persona o empresa (si paga otro). Déjalo vacío si factura a su nombre.</div>}
+              {puede('cobros') && [['facturar_nombre','Facturar a · nombre o empresa'],['facturar_nif','Facturar a · NIF/CIF'],['facturar_direccion','Facturar a · dirección']].map(([k,l])=>(
                 <input key={k} className="input" value={form[k]||''} onChange={e=>setForm((p:any)=>({...p,[k]:e.target.value}))} style={inputOscuro} placeholder={l}/>
               ))}
             </div>
