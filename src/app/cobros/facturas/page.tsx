@@ -48,6 +48,8 @@ export default function FacturasPage() {
 
   const [facturas, setFacturas] = useState<any[]>([])
   const [rectificando, setRectificando] = useState<any>(null)
+  /** Rehacer la factura a nombre de otro (empresa, residencia): rectificativa + nueva. */
+  const [aOtro, setAOtro] = useState<any>(null)
 
   useEffect(() => { verificar() }, [])
   useEffect(() => { if (autorizado) cargar() }, [autorizado, mes])
@@ -226,10 +228,22 @@ export default function FacturasPage() {
                 Rectificar
               </button>
             )}
+            {f.tipo !== 'rectificativa' && (
+              <button className="btn btn-s btn-sm" onClick={()=>setAOtro(f)} title="Rehacer esta factura a nombre de otra persona o empresa">
+                A otro nombre
+              </button>
+            )}
           </div>
         )
       })}
 
+      {aOtro && (
+        <ModalAOtroNombre
+          factura={aOtro}
+          onCerrar={()=>setAOtro(null)}
+          onHecho={(t:string)=>{ setAviso(t); setAOtro(null); cargar() }}
+        />
+      )}
       {rectificando && (
         <ModalRectificar
           factura={rectificando}
@@ -322,6 +336,73 @@ function ModalRectificar({ factura, onCerrar, onHecho }: any) {
           <div style={{flex:1}}/>
           <button className="btn btn-p" onClick={emitir} disabled={emitiendo || !motivo.trim() || elegidas.length===0}>
             {emitiendo ? '…' : 'Emitir rectificativa'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/**
+ * FACTURA A OTRO NOMBRE (sql/facturar-a-otro.sql, `refacturar_a`).
+ *
+ * El cliente viene de una residencia o lo paga una empresa y la factura salió a su
+ * nombre. Una factura emitida no se toca: se emite la rectificativa que la anula entera
+ * y una nueva, con las mismas líneas, a nombre de quien paga. Todo de una vez. Y si se
+ * marca, esos datos quedan en su ficha para las siguientes.
+ */
+function ModalAOtroNombre({ factura, onCerrar, onHecho }: any) {
+  const [d, setD] = useState({ nombre: '', nif: '', direccion: '' })
+  const [cliente, setCliente] = useState('')
+  const [guardar, setGuardar] = useState(true)
+  const [emitiendo, setEmitiendo] = useState(false)
+  const [error, setError] = useState<string|null>(null)
+  useEffect(() => {
+    supabase.from('cobros').select('pacientes(nombre,apellidos,facturar_nombre,facturar_nif,facturar_direccion)').eq('id', factura.cobro_id).maybeSingle()
+      .then(({ data }) => {
+        const p: any = Array.isArray((data as any)?.pacientes) ? (data as any).pacientes[0] : (data as any)?.pacientes
+        if (!p) return
+        setCliente(`${p.nombre || ''} ${p.apellidos || ''}`.trim())
+        setD({ nombre: p.facturar_nombre || '', nif: p.facturar_nif || '', direccion: p.facturar_direccion || '' })
+      })
+  }, [factura.cobro_id])
+
+  async function emitir() {
+    setEmitiendo(true); setError(null)
+    const { data, error } = await supabase.rpc('refacturar_a', {
+      p_factura_id: factura.id, p_motivo: `Se factura a nombre de ${d.nombre.trim()}`,
+      p_nombre: d.nombre, p_nif: d.nif, p_direccion: d.direccion, p_guardar: guardar,
+    })
+    setEmitiendo(false)
+    if (error) { setError(error.message); return }
+    const r: any = Array.isArray(data) ? data[0] : data
+    const n = (s: string, x: number) => `${s}/${String(x).padStart(4, '0')}`
+    onHecho(`Hecho: rectificativa ${n(r.rect_serie, r.rect_numero)} y factura nueva ${n(r.serie, r.numero)} a nombre de ${d.nombre.trim()}.`)
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
+      <div className="modal" style={{maxWidth:460}}>
+        <div className="modal-title">{numeroFactura(factura)} a otro nombre<button className="modal-close" onClick={onCerrar}>✕</button></div>
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,padding:'9px 12px',marginBottom:14,fontSize:11,color:'#7A5800',lineHeight:1.55}}>
+          La factura de {cliente || 'este cliente'} no se borra: se anula con una <strong>rectificativa</strong> y se emite una <strong>nueva</strong> con lo mismo a nombre de quien paga. En la nueva pondrá que el servicio fue para {cliente || 'el cliente'}.
+        </div>
+        <div className="field"><label>Nombre o empresa *</label>
+          <input className="input" autoFocus value={d.nombre} onChange={e=>setD({...d,nombre:e.target.value})} placeholder="ej. Gerpesa Social SLU"/></div>
+        <div className="field"><label>NIF / CIF *</label>
+          <input className="input" value={d.nif} onChange={e=>setD({...d,nif:e.target.value})} placeholder="ej. B36199768"/></div>
+        <div className="field"><label>Dirección</label>
+          <input className="input" value={d.direccion} onChange={e=>setD({...d,direccion:e.target.value})} placeholder="ej. Rúa Viñas 36 · 36163 Poio"/></div>
+        <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12,margin:'4px 0 10px',cursor:'pointer'}}>
+          <input type="checkbox" checked={guardar} onChange={e=>setGuardar(e.target.checked)}/> Guardar en su ficha: sus próximas facturas irán a este nombre
+        </label>
+        {error && <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:11,color:'var(--red)'}}>{error}</div>}
+        <div style={{display:'flex',gap:8,marginTop:8}}>
+          <button className="btn btn-d btn-sm" onClick={onCerrar}>Cancelar</button>
+          <div style={{flex:1}}/>
+          <button className="btn btn-p" onClick={emitir} disabled={emitiendo || !d.nombre.trim() || !d.nif.trim()}>
+            {emitiendo ? '…' : 'Anular y hacer la nueva'}
           </button>
         </div>
       </div>

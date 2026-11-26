@@ -95,7 +95,8 @@ export function htmlFactura(d: FacturaCompleta): string {
       <div class="lbl">Destinatario</div>
       <div class="val"><strong>${esc(f.receptor_nombre || '')}</strong><br>
         ${f.receptor_nif ? `NIF ${esc(f.receptor_nif)}<br>` : ''}
-        ${esc(f.receptor_direccion || '')}</div>
+        ${esc(f.receptor_direccion || '')}
+        ${f.beneficiario ? `<br><span style="color:#555">Usuario/a del servicio: ${esc(f.beneficiario)}</span>` : ''}</div>
     </div>` : (f.receptor_nombre ? `
     <div class="dest">
       <div class="lbl">Cliente</div>
