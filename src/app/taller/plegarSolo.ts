@@ -1,16 +1,27 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { useConfigTrabajo } from '@/lib/usarTrabajo'
+import { ejecucionPorTiempo, type ConfigTrabajo } from '@/lib/trabajo'
+import { camposDelEjercicio } from '@/lib/medida'
 
 // ---------------------------------------------------------------------------
 // LA PARTE SE RECOGE SOLA AL ACABARLA. Cuando todos sus ejercicios están hechos (todas
-// sus series apuntadas) o marcados «No lo hizo», la parte se pliega a los 0,7 s, para
+// sus series con TODOS sus datos apuntados: el ✓ verde) o marcados «No lo hizo», la parte se pliega a los 0,7 s, para
 // que quede a la vista lo que falta. Solo una vez: si se vuelve a abrir a mano, no se
 // cierra otra vez sola; si se desmarca algo y se vuelve a acabar, sí.
 // ---------------------------------------------------------------------------
 
 export type GrupoPlegar = { datos: any[], nh: number[], clave: (ei: number, parte: string) => string }
 
-const serieHecha = (e: any, si: number) => Object.keys(e?.hoy || {}).some(k => k.startsWith(si + '.'))
+/* HECHO = TODOS SUS DATOS APUNTADOS HOY, como el ✓ verde de la casilla (CasillaSeries,
+   todoHecho). Antes bastaba con cualquier dato: al poner solo el peso (las repes salían
+   en gris de la última vez) la parte se cerraba sola sin haber acabado. */
+let cfgActual: ConfigTrabajo | null = null
+const serieHecha = (e: any, si: number) => {
+  const campos = camposDelEjercicio(e, ejecucionPorTiempo(cfgActual, String(e?.regimen || e?.plan?.regimen || '').toLowerCase()))
+  const hoy = e?.hoy || {}
+  return campos.length ? campos.every(c => !!hoy[`${si}.${c}`]) : Object.keys(hoy).some(k => k.startsWith(si + '.'))
+}
 const ejAcabado = (e: any, ei: number, nh: number[]) =>
   nh.includes(ei) || (e.series || []).length === 0 || (e.series || []).every((_: any, si: number) => serieHecha(e, si))
 const ejMarcado = (e: any, ei: number, nh: number[]) =>
@@ -37,6 +48,7 @@ function estado(grupos: GrupoPlegar[]) {
 }
 
 export function usePlegarAcabadas(grupos: GrupoPlegar[], plegadas: Set<string>, alternar: (k: string) => void) {
+  cfgActual = useConfigTrabajo()
   const ya = useRef<Set<string>>(new Set())
   const pl = useRef(plegadas); pl.current = plegadas
   const alt = useRef(alternar); alt.current = alternar
