@@ -21,7 +21,7 @@ import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 import { objetivosDeEjercicio, cruceObjetivo } from '@/lib/ejercicioObjetivos'
 import { camposSerie, ajustesMedida, COLOR_BANDA, partesMedida, idMedida } from '@/lib/medida'
 import { RoscoTiempo } from '@/app/taller/RoscoProgreso'
-import { segundosPrevistos, vecesHechas } from '@/lib/tiempoSesion'
+import { previstoPorEjercicioPartes, descansos, sumar, historialSesion, type DiaSesion } from '@/lib/tiempoSesion'
 import CapaBiblioteca from './CapaBiblioteca'
 import ParteEjercicios from './ParteEjercicios'
 import ParteVacia from './ParteVacia'
@@ -907,13 +907,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 /** El rosco del tiempo en el editor: lo previsto se recalcula al cambiar la sesión. */
 function TiempoDeSesion({ sesionId, partes }: { sesionId?: string, partes: any[] }) {
   const cfg = useConfigTrabajo()
-  const [veces, setVeces] = useState<number[] | null>(sesionId ? null : [])
+  const [dias, setDias] = useState<DiaSesion[] | null>(sesionId ? null : [])
+  const previstoEj = previstoPorEjercicioPartes(cfg, partes)
   useEffect(() => {
     if (!sesionId) return
     let vivo = true
-    vecesHechas(cfg, sesionId, partes).then(v => { if (vivo) setVeces(v) })
+    historialSesion(cfg, sesionId, previstoEj, descansos(partes, false)).then(d => { if (vivo) setDias(d) })
     return () => { vivo = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sesionId, cfg])
-  return <RoscoTiempo previsto={segundosPrevistos(cfg, partes)} veces={veces}/>
+  return <RoscoTiempo previsto={sumar(previstoEj)} dias={dias}/>
 }
