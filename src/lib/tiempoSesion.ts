@@ -43,16 +43,27 @@ export function segundosPrevistosTaller(cfg: ConfigTrabajo, datos: any[]): numbe
 /** Las veces que se hizo la sesión (antes de `antesDe`): segundos hechos cada día. */
 export async function vecesHechas(cfg: ConfigTrabajo, sesionId: string, partes: any[], antesDe?: string, pacienteId?: string): Promise<number[]> {
   if (!sesionId) return []
-  let q = supabase.from('registros_ejercicio').select('fecha,paciente_id,ejercicio_id,series,regimen')
-    .eq('sesion_id', sesionId).eq('finalizado', true).order('fecha', { ascending: false }).limit(1000)
+  let q = supabase.from('registros_ejercicio').select('fecha,paciente_id,ejercicio_id,variante,series,regimen,created_at')
+    .eq('sesion_id', sesionId).eq('finalizado', true).order('fecha', { ascending: false }).order('created_at', { ascending: false }).limit(1000)
   if (antesDe) q = q.lt('fecha', antesDe)
   if (pacienteId) q = q.eq('paciente_id', pacienteId)
   const { data } = await q
   // El descanso de cada ejercicio, el de la sesión.
   const desc: Record<string, number> = {}
   ;(partes || []).forEach(p => (p?.ejercicios || []).forEach((ej: any) => { if (ej?.ejercicio_id) desc[ej.ejercicio_id] = n(ej?.descanso) }))
+  // (las claves de `desc` son además los ejercicios que tiene hoy la sesión)
+  /* LO MISMO QUE LO PREVISTO, PARA QUE SE PUEDA COMPARAR:
+     - solo los ejercicios que tiene HOY la sesión (si se quitó uno, no cuenta);
+     - un registro por ejercicio y día (el último): al volver a finalizar una clase o con
+       un borrador de más, el mismo ejercicio salía dos veces y la media pasaba del 100 %. */
+  const enSesion = new Set(Object.keys(desc))
+  const visto = new Set<string>()
   const porDia: Record<string, number> = {}
   ;(data || []).forEach((r: any) => {
+    if (enSesion.size && !enSesion.has(r.ejercicio_id)) return
+    const kr = r.paciente_id + '|' + r.fecha + '|' + r.ejercicio_id + '|' + (r.variante || '')
+    if (visto.has(kr)) return
+    visto.add(kr)
     const k = r.paciente_id + '|' + r.fecha
     porDia[k] = (porDia[k] || 0) + segundosDeSeries(cfg, r.series || [], r.regimen, desc[r.ejercicio_id] || 0)
   })
