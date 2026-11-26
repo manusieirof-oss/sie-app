@@ -7,5 +7,7 @@ import ClientLayout from './ClientLayout'
 export default function Raiz({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || ''
   if (pathname === '/app' || pathname.startsWith('/app/')) return <>{children}</>
+  // La factura que se manda por WhatsApp (/f/…): pública, sin el marco ni el login de SIE.
+  if (pathname.startsWith('/f/')) return <>{children}</>
   return <ClientLayout>{children}</ClientLayout>
 }

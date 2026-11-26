@@ -116,6 +116,31 @@ export default function FacturasPage() {
     base: a.base + Number(f.base_total), cuota: a.cuota + Number(f.cuota_total), total: a.total + Number(f.total),
   }), { base:0, cuota:0, total:0 }), [filtradas])
 
+  /**
+   * MANDAR LA FACTURA POR WHATSAPP (sql/facturas-enlace.sql). Un enlace secreto que abre
+   * solo esta factura, 90 días. Se abre WhatsApp con el mensaje hecho: al móvil del cliente
+   * si la factura es suya; si va a nombre de otro (empresa), sin número, para elegir a quién.
+   */
+  async function porWhatsApp(f: any) {
+    const ventana = window.open('', '_blank')
+    const { data: ya } = await supabase.from('facturas_enlaces').select('token').eq('factura_id', f.id).gt('caduca', new Date().toISOString()).limit(1)
+    let token = ya?.[0]?.token as string | undefined
+    if (!token) {
+      const b = new Uint8Array(24); crypto.getRandomValues(b)
+      token = btoa(String.fromCharCode(...Array.from(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+      const { error } = await supabase.from('facturas_enlaces').insert({ token, factura_id: f.id })
+      if (error) { ventana?.close(); alert('No se ha podido crear el enlace: ' + error.message); return }
+    }
+    const { data: co } = await supabase.from('cobros').select('pacientes(nombre,telefono)').eq('id', f.cobro_id).maybeSingle()
+    const p: any = Array.isArray((co as any)?.pacientes) ? (co as any).pacientes[0] : (co as any)?.pacientes
+    const tel = f.beneficiario ? '' : String(p?.telefono || '').replace(/\D/g, '')
+    const wa = tel ? (tel.length === 9 ? '34' + tel : tel) : ''
+    const enlace = `${window.location.origin}/f/${token}`
+    const texto = `Hola${!f.beneficiario && p?.nombre ? ' ' + p.nombre : ''}, te mando la factura ${numeroFactura(f)}. Puedes verla y descargarla aquí: ${enlace}`
+    const url = `https://wa.me/${wa}?text=${encodeURIComponent(texto)}`
+    if (ventana) ventana.location.href = url; else window.location.href = url
+  }
+
   async function imprimir(id: string) {
     const r = await abrirFactura(id)
     if (!r.ok) setAviso(r.error || 'No se ha podido abrir la factura.')
@@ -228,6 +253,9 @@ export default function FacturasPage() {
                 Rectificar
               </button>
             )}
+            <button className="btn btn-s btn-sm" onClick={()=>porWhatsApp(f)} title="Mandar esta factura por WhatsApp (enlace que abre solo esta factura)">
+              <Ic name="mensaje" size={12}/>
+            </button>
             {f.tipo !== 'rectificativa' && (
               <button className="btn btn-s btn-sm" onClick={()=>setAOtro(f)} title="Rehacer esta factura a nombre de otra persona o empresa">
                 A otro nombre
@@ -389,11 +417,11 @@ function ModalAOtroNombre({ factura, onCerrar, onHecho }: any) {
           La factura de {cliente || 'este cliente'} no se borra: se anula con una <strong>rectificativa</strong> y se emite una <strong>nueva</strong> con lo mismo a nombre de quien paga. En la nueva pondrá que el servicio fue para {cliente || 'el cliente'}.
         </div>
         <div className="field"><label>Nombre o empresa *</label>
-          <input className="input" autoFocus value={d.nombre} onChange={e=>setD({...d,nombre:e.target.value})} placeholder="ej. Gerpesa Social SLU"/></div>
+          <input className="input" autoFocus value={d.nombre} onChange={e=>setD({...d,nombre:e.target.value})} placeholder="ej. Residencia Ejemplo SL"/></div>
         <div className="field"><label>NIF / CIF *</label>
-          <input className="input" value={d.nif} onChange={e=>setD({...d,nif:e.target.value})} placeholder="ej. B36199768"/></div>
+          <input className="input" value={d.nif} onChange={e=>setD({...d,nif:e.target.value})} placeholder="ej. B00000000"/></div>
         <div className="field"><label>Dirección</label>
-          <input className="input" value={d.direccion} onChange={e=>setD({...d,direccion:e.target.value})} placeholder="ej. Rúa Viñas 36 · 36163 Poio"/></div>
+          <input className="input" value={d.direccion} onChange={e=>setD({...d,direccion:e.target.value})} placeholder="ej. Calle Mayor 1 · 36000 Pontevedra"/></div>
         <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12,margin:'4px 0 10px',cursor:'pointer'}}>
           <input type="checkbox" checked={guardar} onChange={e=>setGuardar(e.target.checked)}/> Guardar en su ficha: sus próximas facturas irán a este nombre
         </label>
