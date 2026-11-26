@@ -193,7 +193,7 @@ export default function ClaseEnCurso(p: any) {
                   de la sesion con su moneda. Ver `IconosContexto`. */}
               <IconosContexto que="contexto" ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
-            {/* CÓMO LE SUELE IR ESTA SESIÓN: cuántas veces llega a su tiempo y la media. Ver RoscoProgreso. */}
+            {/* CUÁNTO DE SU SESIÓN SUELE HACER: media hecha frente a lo previsto. Ver RoscoProgreso. */}
             {act.sesionId && (act.datos||[]).length > 0 && (
               <RoscoProgreso key={act.paciente.id + act.sesionId} pacienteId={act.paciente.id} sesionId={act.sesionId} datos={act.datos} fecha={fecha}/>
             )}

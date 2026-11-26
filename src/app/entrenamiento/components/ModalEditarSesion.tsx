@@ -20,6 +20,8 @@ import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 import { objetivosDeEjercicio, cruceObjetivo } from '@/lib/ejercicioObjetivos'
 import { camposSerie, ajustesMedida, COLOR_BANDA, partesMedida, idMedida } from '@/lib/medida'
+import { RoscoTiempo } from '@/app/taller/RoscoProgreso'
+import { segundosPrevistos, vecesHechas } from '@/lib/tiempoSesion'
 import CapaBiblioteca from './CapaBiblioteca'
 import ParteEjercicios from './ParteEjercicios'
 import ParteVacia from './ParteVacia'
@@ -798,6 +800,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               )}
             </>
           })()}
+          {/* CUÁNTO DURA Y CUÁNTO DE ESO SE HACE: previsto según sus series y la media de lo
+              que se hizo las veces anteriores (lib/tiempoSesion). Cambia al tocar series y reps. */}
+          <TiempoDeSesion sesionId={sesion.id} partes={formSesion.partes}/>
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
           <button className="modal-close" onClick={cerrarSinGuardar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
         </div>
@@ -896,4 +901,19 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     {selectorObjetivos}
     </div>
   )
+}
+
+
+/** El rosco del tiempo en el editor: lo previsto se recalcula al cambiar la sesión. */
+function TiempoDeSesion({ sesionId, partes }: { sesionId?: string, partes: any[] }) {
+  const cfg = useConfigTrabajo()
+  const [veces, setVeces] = useState<number[] | null>(sesionId ? null : [])
+  useEffect(() => {
+    if (!sesionId) return
+    let vivo = true
+    vecesHechas(cfg, sesionId, partes).then(v => { if (vivo) setVeces(v) })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesionId, cfg])
+  return <RoscoTiempo previsto={segundosPrevistos(cfg, partes)} veces={veces}/>
 }
