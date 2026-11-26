@@ -193,9 +193,9 @@ export default function ClaseEnCurso(p: any) {
                   de la sesion con su moneda. Ver `IconosContexto`. */}
               <IconosContexto que="contexto" ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
-            {/* CÓMO VA: ejercicios hechos y tiempo de su clase. Ver RoscoProgreso. */}
+            {/* CÓMO LE SUELE IR ESTA SESIÓN: cuántas veces llega a su tiempo y la media. Ver RoscoProgreso. */}
             {act.sesionId && (act.datos||[]).length > 0 && (
-              <RoscoProgreso datos={act.datos} noHechos={leerNoHechos(act.paciente.id, act.sesionId)} hora={act.hora} duracion={act.duracion} fecha={fecha}/>
+              <RoscoProgreso key={act.paciente.id + act.sesionId} pacienteId={act.paciente.id} sesionId={act.sesionId} datos={act.datos} fecha={fecha}/>
             )}
             {/* UN SOLO GUARDADO: «✓ Finalizar» de arriba cierra a todos los de la clase
                 (también las de hoja libre). Lo que se apunta ya se guarda solo al tocarlo. */}
