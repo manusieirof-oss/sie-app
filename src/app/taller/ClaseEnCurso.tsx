@@ -195,7 +195,7 @@ export default function ClaseEnCurso(p: any) {
             </div>
             {/* CUÁNTO DE SU SESIÓN SUELE HACER: media hecha frente a lo previsto. Ver RoscoProgreso. */}
             {act.sesionId && (act.datos||[]).length > 0 && (
-              <RoscoProgreso key={act.paciente.id + act.sesionId} pacienteId={act.paciente.id} sesionId={act.sesionId} datos={act.datos} fecha={fecha}/>
+              <RoscoProgreso key={act.paciente.id + act.sesionId} pacienteId={act.paciente.id} sesionId={act.sesionId} datos={act.datos} fecha={fecha} noHechos={leerNoHechos(act.paciente.id, act.sesionId)}/>
             )}
             {/* UN SOLO GUARDADO: «✓ Finalizar» de arriba cierra a todos los de la clase
                 (también las de hoja libre). Lo que se apunta ya se guarda solo al tocarlo. */}

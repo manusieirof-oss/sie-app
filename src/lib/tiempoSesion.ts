@@ -27,9 +27,17 @@ export function segundosPrevistos(cfg: ConfigTrabajo, partes: any[]): number {
   }, 0), 0)
 }
 
-/** Lo previsto, desde los ejercicios ya cargados en el taller (cada uno con sus series). */
+/** Lo previsto, desde los ejercicios ya cargados en el taller: TODOS los de la sesión,
+    con lo que hizo la última vez si ya lo hizo alguna (su tiempo real) y si no, lo
+    planificado. No cambia al apuntar lo de hoy. */
 export function segundosPrevistosTaller(cfg: ConfigTrabajo, datos: any[]): number {
-  return (datos || []).reduce((t, e) => t + segundosDeSeries(cfg, e.series || [], e.regimen || e.plan?.regimen, n(e.plan?.descanso ?? e.descanso)), 0)
+  return (datos || []).reduce((t, e) => {
+    const nS = (e.series || []).length || n(e.plan?.series) || 1
+    const ult = Array.isArray(e.ultimo) && e.ultimo.some((x: any) => n(x?.reps) || n(x?.segundos)) ? e.ultimo : null
+    const plan = (e.plan?.reps || e.plan?.tiempo) ? Array.from({ length: nS }, () => ({ reps: e.plan?.reps, segundos: e.plan?.tiempo })) : null
+    const series = ult ? Array.from({ length: nS }, (_, i) => ult[i] || ult[ult.length - 1]) : plan || e.series || []
+    return t + segundosDeSeries(cfg, series, e.regimen || e.plan?.regimen, n(e.plan?.descanso ?? e.descanso))
+  }, 0)
 }
 
 /** Las veces que se hizo la sesión (antes de `antesDe`): segundos hechos cada día. */
@@ -49,6 +57,17 @@ export async function vecesHechas(cfg: ConfigTrabajo, sesionId: string, partes: 
     porDia[k] = (porDia[k] || 0) + segundosDeSeries(cfg, r.series || [], r.regimen, desc[r.ejercicio_id] || 0)
   })
   return Object.values(porDia).filter(s => s > 0)
+}
+
+/** Lo hecho HOY en el taller: las series con su volumen (reps, segundos o metros)
+    apuntado hoy, con sus valores. Los de «No lo hizo» no cuentan. */
+export function segundosHechosHoy(cfg: ConfigTrabajo, datos: any[], noHechos: number[] = []): number {
+  return (datos || []).reduce((t, e, i) => {
+    if (noHechos.includes(i)) return t
+    const hoy = e?.hoy || {}
+    const hechas = (e.series || []).filter((_: any, si: number) => hoy[`${si}.reps`] || hoy[`${si}.segundos`] || hoy[`${si}.metros`])
+    return t + segundosDeSeries(cfg, hechas, e.regimen || e.plan?.regimen, n(e.plan?.descanso ?? e.descanso))
+  }, 0)
 }
 
 export const minutos = (s: number) => Math.round(s / 60)
