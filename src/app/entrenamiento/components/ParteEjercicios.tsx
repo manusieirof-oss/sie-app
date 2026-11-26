@@ -10,7 +10,7 @@ import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEje
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
-import { categoriaDe } from '@/lib/etiquetas'
+import { categoriaDe, agarresDe } from '@/lib/etiquetas'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 import { contiene } from '@/lib/texto'
 import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
@@ -315,6 +315,14 @@ export default function ParteEjercicios(p: any) {
                       <ChipMenu valor={ej.lado||'Bilateral'} opciones={[...LADOS]} clase="chip-ed-l"
                         titulo="Bilateral, a un lado (unilateral) o alternando lados"
                         onElegir={v=>editarEjercicio(ei,{lado:v})}/>
+                      {/* EL AGARRE, solo si el ejercicio admite alguno (sus etiquetas de agarre).
+                          Así no hace falta un ejercicio por agarre: se elige aquí y el taller lo enseña. */}
+                      {(() => {
+                        const bibAg = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
+                        const ags = agarresDe(etiquetas, bibAg?.etiquetas || [])
+                        return ags.length > 0 ? <ChipMenu valor={ej.agarre||''} opciones={ags} clase="chip-ed-l" vacio="Agarre"
+                          titulo="Con qué agarre se hace" onElegir={v=>editarEjercicio(ei,{agarre:v})}/> : null
+                      })()}
                       <ChipMenu valor={ej.capacidad} opciones={nombresCapacidad(cfgTrabajo)}
                         clase="chip-ed-a" vacio="Capacidad" titulo="Capacidad que se entrena"
                         onElegir={cap=>{

@@ -104,6 +104,8 @@ export async function guardarBorradorEjercicio(pid: string, ej: any, sesionId: s
     capacidad: ej.plan?.capacidad || (volumenDe(ej, seriesLlenas) === 'reps' ? capacidadPorReps(seriesLlenas[0]?.reps || ej.plan?.reps || '') || null : null),
     // EL MATERIAL DE ESE DÍA (sql/material-dia.sql): otra carga u otro material que el de la biblioteca.
     carga: ej.carga || null, material: ej.material || null,
+    // EL AGARRE DE ESE DÍA (sql/agarre-dia.sql): prono, supino… de los que admite el ejercicio.
+    agarre: ej.agarre || ej.plan?.agarre || null,
   }
   let error: any
   if (ej.ejercicio_id){
@@ -122,8 +124,9 @@ export async function guardarBorradorEjercicio(pid: string, ej: any, sesionId: s
       existe = null
     }
     if (existe){
-      const cambios: any = { carga: fila.carga, material: fila.material, series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series, lado: fila.lado, medida: fila.medida, capacidad: fila.capacidad }
+      const cambios: any = { carga: fila.carga, material: fila.material, series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series, lado: fila.lado, medida: fila.medida, capacidad: fila.capacidad, agarre: fila.agarre }
       ;({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id))
+      if (error && /agarre/.test(error.message)) { delete cambios.agarre; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       // Sin las columnas nuevas (falta el SQL) se guarda igual, sin ellas.
       if (error && /carga|material/.test(error.message)) { delete cambios.carga; delete cambios.material; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       if (error && /capacidad|medida/.test(error.message)) { delete cambios.capacidad; delete cambios.medida; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
@@ -133,6 +136,7 @@ export async function guardarBorradorEjercicio(pid: string, ej: any, sesionId: s
     } else {
       const [limpia] = await sinEjerciciosBorrados([fila]); Object.assign(fila, limpia)
       ;({ error } = await supabase.from('registros_ejercicio').insert(fila))
+      if (error && /agarre/.test(error.message)) { delete fila.agarre; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /carga|material/.test(error.message)) { delete fila.carga; delete fila.material; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /capacidad|medida/.test(error.message)) { delete fila.capacidad; delete fila.medida; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
@@ -140,6 +144,7 @@ export async function guardarBorradorEjercicio(pid: string, ej: any, sesionId: s
     }
   } else {
     ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+    if (error && /agarre/.test(error.message)) { delete fila.agarre; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     if (error && /carga|material/.test(error.message)) { delete fila.carga; delete fila.material; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     if (error && /capacidad|medida/.test(error.message)) { delete fila.capacidad; delete fila.medida; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
@@ -179,7 +184,9 @@ const loJusto = (ej: any) => ({
   ejercicio_id: ej.ejercicio_id || null, nombre: ej.nombre, series: ej.series || [], comentario: ej.comentario || '',
   items_evaluados: ej.items_evaluados || {}, regimen: ej.regimen || null, variante: ej.variante || null, lado: ej.lado || null,
   tipo_medida: ej.tipo_medida || null,
-  plan: ej.plan ? { regimen: ej.plan.regimen, lado: ej.plan.lado, capacidad: ej.plan.capacidad, reps: ej.plan.reps } : undefined,
+  // El material y el agarre del día tampoco se pierden si no había conexión.
+  carga: ej.carga || null, material: ej.material || null, agarre: ej.agarre || null,
+  plan: ej.plan ? { regimen: ej.plan.regimen, lado: ej.plan.lado, capacidad: ej.plan.capacidad, reps: ej.plan.reps, agarre: ej.plan.agarre } : undefined,
 })
 export function apuntarPendiente(k: string, pid: string, sesionId: string, fechaC: string, ej: any, motivo: string) {
   const m = leerPendientes()

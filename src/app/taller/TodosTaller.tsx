@@ -6,6 +6,7 @@ import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { itemMarcado } from '@/lib/ejecucion'
+import { agarresDe } from '@/lib/etiquetas'
 import { camposDelEjercicio, partesMedida, UNIDAD } from '@/lib/medida'
 import { pedirFoto } from '@/lib/fotos'
 import { textoModo } from '@/lib/sesiones'
@@ -36,6 +37,8 @@ export interface AccionesTodos {
   quitarSerie: (pid: string, ei: number, si: number) => void
   regimen: (pid: string, ei: number, val: string) => void
   lado: (pid: string, ei: number, val: string) => void
+  /** El agarre de hoy, de los que admite el ejercicio. Sin él (nivel 1), se ve y no se toca. */
+  agarre?: (pid: string, ei: number, val: string) => void
   /** Reps o segundos, como en la vista de uno: queda para este paciente. */
   volumen?: (pid: string, ei: number, val: 'reps' | 'segundos') => void
   coment: (pid: string, ei: number, val: string) => void
@@ -58,7 +61,7 @@ export interface AccionesTodos {
   medida?: (ejercicioId: string, tipo: string) => void
 }
 
-export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: any[], nombrePac: (p: any) => string, a: AccionesTodos }) {
+export default function TodosTaller({ seleccion, nombrePac, a, etiquetas = [] }: { seleccion: any[], nombrePac: (p: any) => string, a: AccionesTodos, etiquetas?: any[] }) {
   const [fotos, setFotos] = useState<Record<string, string | null>>({})
   useEffect(() => {
     seleccion.forEach(s => {
@@ -182,6 +185,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                          que no tienen ejecucion, y en la de uno no salia nada: al pasar de una a
                          otra parecia que el ejercicio cambiaba. Sin ejecucion, "+ ejecución". */
                       const reg = e.regimen || e.plan?.regimen || '', lado = e.lado || e.plan?.lado || 'Bilateral'
+                      const agarres = agarresDe(etiquetas, e.etiquetas || []), agarre = e.agarre || e.plan?.agarre || ''
                       // Reps o segundos: solo en los que se cuentan asi (no metros), igual que en la de uno.
                       const volCambiable = ['reps', 'segundos'].includes(partesMedida(e.tipo_medida).volumen)
                       const porSeg = campos(e).includes('segundos')
@@ -191,6 +195,10 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                           title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(ejecuciones, reg)) }}>{reg || '+ ejecución'}</button>
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
                           title={a.puedeCambiar !== false ? 'Lateralidad · toca para cambiar' : 'Lateralidad'} onClick={() => { if (a.puedeCambiar !== false) a.lado(p.id, ei, sig(LADOS, lado)) }}>{lado}</button>
+                        {/* EL AGARRE, solo si el ejercicio admite alguno. Un toque pasa al siguiente. */}
+                        {agarres.length > 0 && <button className={'tt-tag lado' + (e.plan?.agarre && e.agarre && e.agarre !== e.plan.agarre ? ' cambio' : '')}
+                          title={a.agarre ? 'Agarre · toca para cambiar' : 'Agarre'}
+                          onClick={() => { if (a.agarre) a.agarre(p.id, ei, agarre ? sig(agarres, agarre) : agarres[0]) }}>{agarre || '+ agarre'}</button>}
                         {/* REPS O SEGUNDOS: en esta vista no se podia elegir. */}
                         {volCambiable && <button className={'tt-tag lado' + (e.volumenHoy ? ' cambio' : '')}
                           title={a.volumen ? 'Repeticiones o segundos · toca para cambiar (para este paciente)' : 'Repeticiones o segundos'}

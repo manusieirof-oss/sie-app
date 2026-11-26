@@ -52,7 +52,7 @@ import { CAMPOS_MEDIDA, CAMPOS_SERIE, serieLlena, antesDeClase, sinEjerciciosBor
 // el archivo grande se queda con el estado y este solo pinta. Lo que necesita le llega
 // por props desde alli.
 export default function ClaseEnCurso(p: any) {
-  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, setMaterial, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
+  const { abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, setMaterial, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setAgarre, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista } = p
   // Al acabar una parte (todo hecho o «No lo hizo»), se recoge sola. Ver plegarSolo.
   usePlegarAcabadas(act ? [{ datos: act.datos || [], nh: act.sesionId ? leerNoHechos(act.paciente.id, act.sesionId) : [],
     clave: (ei: number, parte: string) => `${act.paciente.id}|${ei}|${parte}` }] : [], plegadas, alternarPlegada)
@@ -64,9 +64,9 @@ export default function ClaseEnCurso(p: any) {
                 border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
         </div>
       ) : vista==='todos' ? (
-        <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{
+        <TodosTaller seleccion={seleccion} nombrePac={nombrePac} etiquetas={etiquetas} a={{
           confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
-          regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
+          regimen: setRegimen, lado: setLado, agarre: cambiaEj ? setAgarre : undefined, coment: setComent, item: toggleItem,
           volumen: cambiaEj ? setVolumen : undefined,
           noHecho: alternarNoHecho, noHechos: leerNoHechos,
           sustituir: abrirSustituir, puedeCambiar: cambiaEj,
@@ -311,7 +311,7 @@ export default function ClaseEnCurso(p: any) {
               onAceptarMedida={editaPlan ? (pos: string, t: string, n?: string) => aceptarMedida(act.paciente.id, pos, t, n) : undefined}
               setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
-              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined}
+              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined} setAgarre={cambiaEj ? setAgarre : undefined}
               setVolumen={cambiaEj ? setVolumen : undefined}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}

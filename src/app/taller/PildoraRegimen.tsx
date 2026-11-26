@@ -63,7 +63,7 @@ export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opcion
           <button className="menu-it" style={{ width: '100%', textAlign: 'left', fontSize: 11,
             color: 'var(--gr)' }}
             onClick={() => { onCambio(''); setAbierto(false) }}>
-            Volver a lo planificado · {plan}
+            {plan ? `Volver a lo planificado · ${plan}` : 'Quitar'}
           </button>
         )}
       </Flotante>

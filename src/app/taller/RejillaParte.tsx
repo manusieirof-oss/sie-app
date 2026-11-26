@@ -6,6 +6,7 @@ import RoscoEjercicio from './RoscoEjercicio'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen, { LADOS, cambiadoHoy } from './PildoraRegimen'
+import { agarresDe } from '@/lib/etiquetas'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useState } from 'react'
 import { CromoDeId } from '@/components/FichaEjercicio'
@@ -42,7 +43,7 @@ const chapa = (pos: any): any => ({
 
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, setMaterial, onAceptarMedida, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
-  addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
+  addSerie, quitarSerie, setRegimen, setLado, setAgarre, setVolumen, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA, desplegar = false }: any) {
   const [moviendo, setMoviendo] = useState(false)
   const [cambiandoMedida, setCambiandoMedida] = useState<string | null>(null)
@@ -149,7 +150,9 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
           // Reps o segundos: solo en ejercicios que se cuentan por reps o por tiempo (no metros).
           const volCambiable = ['reps', 'segundos'].includes(partesMedida(ej.tipo_medida).volumen)
           const porSeg = camposDelEjercicio(ej, ejecucionPorTiempo(cfgTrabajo, String(ej.regimen || ej.plan?.regimen || '').toLowerCase())).includes('segundos')
-          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
+          // LOS AGARRES QUE ADMITE (sus etiquetas de agarre). Sin ninguno, no sale nada.
+          const agarres = agarresDe(etiquetas, ej.etiquetas || [])
+          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (agarres.length > 0 && !!ej.plan?.agarre && cambiadoHoy(ej, 'agarre')) || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
           const pe = ej.pos != null ? peDe(ej.pos) : null
           const cogida = arrastra?.pos === ej.pos, destino = arrastra && arrastra.sobre === pe && !cogida
           return (
@@ -176,6 +179,13 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
                 opacity: noLoHizo ? .35 : 1 }}>
                 <PildoraRegimen texto ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
                   onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
+                {/* EL AGARRE, como el lado: el planificado o el de la última vez, y se cambia
+                    solo para hoy. Sin elegir, «+ agarre». */}
+                {agarres.length > 0 && <>
+                  <span style={{ opacity: .7 }}>·</span>
+                  <PildoraRegimen texto ej={ej} campo="agarre" opciones={agarres} titulo="Agarre hoy" vacio="+ agarre"
+                    onCambio={setAgarre ? (v: string) => setAgarre(pacienteId, ei, v) : undefined}/>
+                </>}
                 {/* Sin régimen en el plan también se puede poner (isométrico, excéntrico…):
                     antes, si la sesión no lo traía, no había dónde marcarlo. */}
                 {(hayRegimen || setRegimen) && <>

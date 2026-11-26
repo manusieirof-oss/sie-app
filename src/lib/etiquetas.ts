@@ -257,3 +257,16 @@ export function nombreConRama(etiquetas: any[], et: any): string {
   const n = normNombre(et.nombre || ''), p = normNombre(padre.nombre || '')
   return n.includes(p) ? (et.nombre || '') : `${padre.nombre} › ${et.nombre}`
 }
+
+/**
+ * LOS AGARRES POSIBLES DE UN EJERCICIO: sus etiquetas de la categoría «agarre».
+ * El agarre no es otro ejercicio (eso llenaba la biblioteca de copias): el ejercicio
+ * dice cuáles admite y en el torno o en la sala se elige uno. Sin ninguno, no se elige.
+ */
+export function agarresDe(etiquetas: any[], ids: string[] = []): string[] {
+  const set = new Set((ids || []).map(String))
+  return (etiquetas || [])
+    .filter(e => set.has(String(e.id)) && categoriaDe(etiquetas, e) === 'agarre')
+    .map(e => e.nombre)
+    .sort((a, b) => a.localeCompare(b, 'es'))
+}

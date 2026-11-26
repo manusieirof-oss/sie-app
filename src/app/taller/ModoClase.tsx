@@ -855,7 +855,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * mismo ejercicio, o si se ha movido (se quitó uno antes), el mismo ejercicio.
    */
   function conservarDelDia(viejos: any[] = [], nuevos: any[]) {
-    const tocados = viejos.filter((v: any) => v.ladoHoy || v.regimenHoy || v.volumenHoy)
+    const tocados = viejos.filter((v: any) => v.ladoHoy || v.regimenHoy || v.volumenHoy || v.agarreHoy)
     if (!tocados.length) return nuevos
     const usados = new Set<any>()
     return nuevos.map((e: any) => {
@@ -866,7 +866,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       return { ...e,
         ...(v.ladoHoy ? { lado: v.lado, ladoHoy: true } : {}),
         ...(v.regimenHoy ? { regimen: v.regimen, regimenHoy: true } : {}),
-        ...(v.volumenHoy ? { volumen: v.volumen, volumenHoy: true } : {}) }
+        ...(v.volumenHoy ? { volumen: v.volumen, volumenHoy: true } : {}),
+        ...(v.agarreHoy ? { agarre: v.agarre, agarreHoy: true } : {}) }
     })
   }
 
@@ -1195,6 +1196,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           plan:{
             series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo, metros:ej.metros, banda:ej.banda,
             capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota, lado:ej.lado,
+            agarre:ej.agarre,
           },
           /* LAS CASILLAS EMPIEZAN CON LO PRESCRITO. En la sala se sale de lo
              planificado y se corrige lo que cambie, que es casi nada; con las
@@ -1280,7 +1282,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const BASE_FIN = 'ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado,sesion_id'
       // Con el material del día (sql/material-dia.sql); sin esas columnas, como antes.
-      let { data: fin0, error: eFin } = await leerFin(BASE_FIN + ',carga,material') as any
+      // Y con el agarre del día (sql/agarre-dia.sql); sin esa columna, sin él.
+      let { data: fin0, error: eFin } = await leerFin(BASE_FIN + ',carga,material,agarre') as any
+      if (eFin) ({ data: fin0, error: eFin } = await leerFin(BASE_FIN + ',carga,material') as any)
       if (eFin) ({ data: fin0 } = await leerFin(BASE_FIN) as any)
       // Lo apuntado un día en que luego se marcó falta no es «la última vez».
       const faltas = await diasDeFalta(pid)
@@ -1296,6 +1300,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const misma = (r: any) => sesIds.includes(r.sesion_id)
       const ultMap:Record<string,any>={}
       const refMap:Record<string,any>={}
+      /* LA ULTIMA VEZ, CON EL MISMO AGARRE. Prono y supino no se comparan, igual que un
+         lado con otro. Lo apuntado antes de que hubiera agarre (sin agarre) vale para
+         cualquiera: es lo único que hay. */
+      const ultAg:Record<string,any>={}
+      const refAg:Record<string,any>={}
       /* COMO LO HIZO LA ULTIMA VEZ (ejecucion y lateralidad), haya series o no. Si en la
          sala se cambio a excentrico o a unilateral, la clase siguiente sale asi: queda
          anotado sin tocar la sesion (puede ser de la biblioteca y la usan otros). Con
@@ -1316,8 +1325,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
            que el lado dejo de ir en el nombre, va en la clave. Sin lado = bilateral. */
         const kl = k + '|' + (r.lado || 'Bilateral')
         if (Array.isArray(r.series) && r.series.length>0) {
-          if (misma(r)) { if (!ultMap[kl]) ultMap[kl]=r }
-          else if (!refMap[kl]) refMap[kl]=r
+          const ka = kl + '|' + (r.agarre || '')
+          if (misma(r)) { if (!ultMap[kl]) ultMap[kl]=r; if (!ultAg[ka]) ultAg[ka]=r }
+          else { if (!refMap[kl]) refMap[kl]=r; if (!refAg[ka]) refAg[ka]=r }
         }
         const t = String(r.comentario||'').trim()
         if (t !== '') {
@@ -1348,13 +1358,20 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           const como = comoMap[kv]
           if (como?.regimen && como.regimen !== (e.plan?.regimen || '')) e.regimen = como.regimen
           if (como?.lado && como.lado !== (e.plan?.lado || 'Bilateral')) e.lado = como.lado
+          // EL AGARRE DE LA ÚLTIMA VEZ, como el lado: si cambió en la sala, hoy sale igual.
+          if (como?.agarre && como.agarre !== (e.plan?.agarre || '')) e.agarre = como.agarre
           // EL MATERIAL DE LA ÚLTIMA VEZ: si la hizo con goma o con peso, hoy sale igual.
           if (como?.carga || como?.material) aplicarMaterial(e, como.carga || null, como.material || null)
-          const kl = kv + '|' + (e.lado || e.plan?.lado || 'Bilateral')
-          e.ultimo = ultMap[kl]?.series || null
-          e.ultimoComent = ultMap[kl]?.comentario || ''
+          const kl0 = kv + '|' + (e.lado || e.plan?.lado || 'Bilateral')
+          const agHoy = e.agarre || e.plan?.agarre || ''
+          // Con agarre: el de ese agarre, o lo de antes de que hubiera agarre. Sin agarre: lo último.
+          const desde = (porAg: Record<string, any>, todos: Record<string, any>) =>
+            agHoy ? (porAg[kl0 + '|' + agHoy] || porAg[kl0 + '|']) : todos[kl0]
+          const ultR = desde(ultAg, ultMap), refR = desde(refAg, refMap)
+          e.ultimo = ultR?.series || null
+          e.ultimoComent = ultR?.comentario || ''
           // Primera vez en esta sesión: lo de otra, solo para mirar (con su fecha).
-          e.ultimoRef = !ultMap[kl] && refMap[kl] ? { series: refMap[kl].series, fecha: refMap[kl].fecha } : null
+          e.ultimoRef = !ultR && refR ? { series: refR.series, fecha: refR.fecha } : null
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
@@ -1382,8 +1399,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               return { ...orig, ...Object.fromEntries(CAMPOS_MEDIDA.map(f => [f, lleno(prev[f]) ? prev[f] : orig[f]])) }
             })
             e.precargado = true
-            if (prop && ultMap[kl]?.fecha && ultMap[kl].fecha !== fechaC && admitePropuesta(e)) {
-              const pr = prop(ultMap[kl].fecha)
+            if (prop && ultR?.fecha && ultR.fecha !== fechaC && admitePropuesta(e)) {
+              const pr = prop(ultR.fecha)
               if (pr) {
                 const conMolestia = avisosDeCondiciones({ molestias: molPac, patologias: patPac }, etiquetas, e.etiquetas || []).length > 0
                 const r = proponerSeries(e.series, pr.r, conMolestia)
@@ -1392,7 +1409,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               }
             }
             // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
-            if (ultMap[kl]?.fecha === fechaC) {
+            if (ultR?.fecha === fechaC) {
               const hoy: Record<string, boolean> = {}
               e.ultimo.forEach((x:any, k:number) => CAMPOS_SERIE.forEach(f => {
                 if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
@@ -1429,6 +1446,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
             if (c.regimen) e.regimen = c.regimen
             if (c.lado) e.lado = c.lado
+            if (c.agarre) e.agarre = c.agarre
             if (c.carga || c.material) aplicarMaterial(e, c.carga || null, c.material || null)
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
@@ -1717,6 +1735,17 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     }))
   }
 
+  // Agarre de hoy: como el lado, no toca la sesion. '' = volver al planificado.
+  function setAgarre(pid:string, ei:number, val:string){
+    avisarGuia('franja')
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],agarre:val,agarreHoy:true,guardado:false,precargado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
   function setComent(pid:string, ei:number, val:string){
     avisarGuia('nota')
     setSeleccion(prev => prev.map(s=>{
@@ -1867,6 +1896,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
         lado: ej.lado || ej.plan?.lado || null,
         ...(ej.carga || ej.material ? { carga: ej.carga || null, material: ej.material || null } : {}),
+        // Solo si lleva agarre: así, sin la columna (falta sql/agarre-dia.sql), se cierra igual.
+        ...(ej.agarre || ej.plan?.agarre ? { agarre: ej.agarre || ej.plan?.agarre } : {}),
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
         fecha: fechaC,
@@ -2089,7 +2120,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       )}
 
       {/* CUERPO */}
-      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, setMaterial, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
+      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, setMaterial, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setAgarre, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
