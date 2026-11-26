@@ -60,6 +60,15 @@ const hoy = hoyISO
    que entrar desde la agenda se vea y funcione igual que en la sala. */
 export type SoloTaller = { fecha: string, hora: string, pacienteId: string, onCerrar?: () => void }
 
+/** Cambia cómo se mide hoy un ejercicio por el material: la carga manda en las casillas
+    (con peso sale la de kg) y se recuerda para guardarla. Sin nada, vuelve a la biblioteca. */
+function aplicarMaterial(e: any, carga: string | null, material: string | null) {
+  const base = e.tipoBase || e.tipo_medida
+  e.carga = carga || null
+  e.material = (material || '').trim() || null
+  e.tipo_medida = carga ? idMedida(carga as any, partesMedida(e.tipo_medida || base).volumen) : base
+}
+
 export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // Las reglas de Clínico (qué evitar) llegan una vez; al llegar se repinta para que
   // salgan los avisos en los ejercicios. Ver lib/reglasClinicas.
@@ -1217,6 +1226,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
            Antes mandaba la sesión entera y el taller decía lo contrario que el torno. */
         const pSes = e.tipo_medida_ses ? partesMedida(e.tipo_medida_ses) : null, pBib = t?.tipo_medida ? partesMedida(t.tipo_medida) : null
         e.tipo_medida = pSes || pBib ? idMedida((pBib || pSes)!.carga, (pSes || pBib)!.volumen) : 'peso_reps'
+        // Lo de la biblioteca, para volver a ello si hoy se cambia el material.
+        e.tipoBase = e.tipo_medida
         // LA FOTO, LA DE LA BIBLIOTECA. La sesión guarda una copia de cuando se metió el
         // ejercicio; si luego se cambió en la biblioteca, el taller seguía con la vieja.
         if (t?.imagen_url) e.imagen_url = t.imagen_url
@@ -1263,10 +1274,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
        * Sin respaldo a proposito: si no ha hecho nunca ESA variante, lo honesto es
        * decir que no hay registro previo, no ensenarle el de otra cosa.
        */
-      const { data: fin0 } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado,sesion_id')
+      const leerFin = (campos: string) => supabase.from('registros_ejercicio')
+        .select(campos)
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids).lte('fecha', fechaC)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+      const BASE_FIN = 'ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado,sesion_id'
+      // Con el material del día (sql/material-dia.sql); sin esas columnas, como antes.
+      let { data: fin0, error: eFin } = await leerFin(BASE_FIN + ',carga,material') as any
+      if (eFin) ({ data: fin0 } = await leerFin(BASE_FIN) as any)
       // Lo apuntado un día en que luego se marcó falta no es «la última vez».
       const faltas = await diasDeFalta(pid)
       const fin = (fin0 || []).filter((r: any) => !faltas.has(r.fecha))
@@ -1333,6 +1348,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           const como = comoMap[kv]
           if (como?.regimen && como.regimen !== (e.plan?.regimen || '')) e.regimen = como.regimen
           if (como?.lado && como.lado !== (e.plan?.lado || 'Bilateral')) e.lado = como.lado
+          // EL MATERIAL DE LA ÚLTIMA VEZ: si la hizo con goma o con peso, hoy sale igual.
+          if (como?.carga || como?.material) aplicarMaterial(e, como.carga || null, como.material || null)
           const kl = kv + '|' + (e.lado || e.plan?.lado || 'Bilateral')
           e.ultimo = ultMap[kl]?.series || null
           e.ultimoComent = ultMap[kl]?.comentario || ''
@@ -1412,6 +1429,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
             if (c.regimen) e.regimen = c.regimen
             if (c.lado) e.lado = c.lado
+            if (c.carga || c.material) aplicarMaterial(e, c.carga || null, c.material || null)
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
@@ -1601,6 +1619,18 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * solo lo sabes mirandolo. Se guarda en el registro de hoy y no toca la
    * sesion: manana vuelve a salir lo planificado.
    */
+  /** EL MATERIAL DE HOY (rosco › Material): otra carga (peso, goma o nada) u otro material.
+      Va en lo apuntado de hoy, no en la biblioteca. null = como en la biblioteca. */
+  function setMaterial(pid:string, ei:number, carga:string|null, material:string|null){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; const e={...datos[ei],guardado:false,precargado:false}
+      aplicarMaterial(e, carga, material)
+      datos[ei]=e
+      programarAutosave(pid,ei,e,s.sesionId)
+      return {...s,datos}
+    }))
+  }
   function setRegimen(pid:string, ei:number, val:string){
     avisarGuia('franja')
     setSeleccion(prev => prev.map(s=>{
@@ -1836,6 +1866,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         comentario: (ej.comentario || '').trim() || null, items_evaluados: ej.items_evaluados || {}, finalizado: false,
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
         lado: ej.lado || ej.plan?.lado || null,
+        ...(ej.carga || ej.material ? { carga: ej.carga || null, material: ej.material || null } : {}),
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
         fecha: fechaC,
@@ -2058,7 +2089,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       )}
 
       {/* CUERPO */}
-      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
+      <ClaseEnCurso {...{ abrirSustituir, abrirTest, act, addSerie, alternarNoHecho, alternarPlegada, aplicarMetodoParte, apuntarHoja, cambiaEj, cambiaSes, cambios, aceptarMedida, setMaterial, sugPorPaciente, cargarCatalogo, claveHechos, confirmar, confirmarSerie, desmarcarEj, ctxPorPaciente, desplegar, editaAgenda, editaPlan, enOtros, etiquetas, fecha, haceTests, hechosHoja, hojaAct, hojas, hora, leerNoHechos, listaTests, marcarTodosItems, metodos, moverEnParte, mutarSerie, nombrePac, objetivosLib, objsPorPaciente, ordenando, perdido, plegadas, quitarSerie, reordenarParte, repPorPaciente, sala, seleccion, setActivo, setAnadiendo, setAnadiendoPac, setCitaVelo, setComent, setLado, setListaTests, setOrdenando, setRegimen, setVista, setVolumen, sinTest, solo, sustituir, testsHoy, toggleItem, toggleObjetivo, trayendo, vista }} />
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (

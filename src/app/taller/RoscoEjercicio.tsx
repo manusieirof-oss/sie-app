@@ -26,7 +26,7 @@ function quesito(a0: number, a1: number) {
 const textoDe = (it: any) => typeof it === 'string' ? it : it?.texto
 const num = (v: any) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null }
 
-type K = 'bien' | 'fb' | 'notas' | 'graf' | 'no' | 'cambiar'
+type K = 'bien' | 'fb' | 'notas' | 'graf' | 'no' | 'cambiar' | 'material'
 
 export default function RoscoEjercicio(p: {
   ej: any, ei: number, pacienteId: string, noLoHizo: boolean
@@ -35,6 +35,7 @@ export default function RoscoEjercicio(p: {
   objetivosLib?: any[], objsPac?: any[], onObjetivo?: (oid: string) => void
   setComent: (pid: string, ei: number, v: string) => void
   onNoHecho?: () => void, onCambiar?: () => void, onVer?: () => void, onRevisar?: () => void
+  onMaterial?: (carga: string | null, material: string | null) => void
   onCerrar: () => void
 }) {
   const { ej } = p
@@ -56,6 +57,7 @@ export default function RoscoEjercicio(p: {
     { k: 'notas', t: 'Notas', extra: nNotas ? `${nNotas} anotada${nNotas === 1 ? '' : 's'}` : '' },
     { k: 'graf', t: 'Gráfica', extra: '' },
     ...(p.onNoHecho ? [{ k: 'no' as K, t: p.noLoHizo ? 'Sí lo hizo' : 'No lo hizo', extra: p.noLoHizo ? 'marcado' : '', rojo: true }] : []),
+    ...(p.onMaterial ? [{ k: 'material' as K, t: 'Material', extra: ej.carga ? CARGA_TXT[ej.carga] : ej.material ? 'cambiado' : '' }] : []),
     ...(p.onCambiar ? [{ k: 'cambiar' as K, t: 'Cambiar', extra: '' }] : []),
   ]
   const paso = 360 / QS.length
@@ -145,10 +147,37 @@ export default function RoscoEjercicio(p: {
             </>}
 
             {abierto === 'graf' && <Grafica pacienteId={p.pacienteId} ej={ej}/>}
+
+            {abierto === 'material' && p.onMaterial && <PanelMaterial ej={ej} onMaterial={p.onMaterial}/>}
           </div>
         )}
       </div>
     </div>, document.body)
+}
+
+const CARGA_TXT: Record<string, string> = { kg: 'con peso', banda: 'con goma', corporal: 'sin carga' }
+const MATERIALES = ['Polea', 'Máquina', 'Mancuernas', 'Barra', 'Kettlebell', 'Goma', 'TRX', 'Fitball', 'Disco']
+
+/** CAMBIAR EL MATERIAL DE HOY: con qué carga lo hace y con qué. Se guarda en lo de hoy y
+    la próxima vez sale igual; la biblioteca no se toca. */
+function PanelMaterial({ ej, onMaterial }: { ej: any, onMaterial: (c: string | null, m: string | null) => void }) {
+  const [mat, setMat] = useState<string>(ej.material || '')
+  const carga = ej.carga || null
+  return <>
+    <h2>Material</h2>
+    <p className="re-sub">Solo para hoy y para esta persona; la próxima vez sale igual. La biblioteca no cambia.</p>
+    <div className="re-rot">Cómo lo hace</div>
+    {(['kg', 'banda', 'corporal'] as const).map(c => (
+      <button key={c} type="button" className={`re-op ${carga === c ? 'on' : ''}`} onClick={() => onMaterial(carga === c ? null : c, mat)}>
+        <i>{carga === c ? '✓' : ''}</i>{c === 'kg' ? 'Con peso (se apuntan los kg)' : c === 'banda' ? 'Con goma (se apunta cuál)' : 'Sin carga'}</button>
+    ))}
+    <div className="re-rot">Con qué</div>
+    <div className="re-objs" style={{ margin: '0 0 8px' }}>
+      {MATERIALES.map(m => <button key={m} type="button" className={mat === m ? 'on' : ''} onClick={() => { const v = mat === m ? '' : m; setMat(v); onMaterial(carga, v) }}>{m}</button>)}
+    </div>
+    <input className="re-txt" style={{ minHeight: 0 }} value={mat} placeholder="Otro: escribe el material…" onChange={e => setMat(e.target.value)} onBlur={() => onMaterial(carga, mat)}/>
+    {(ej.carga || ej.material) && <button type="button" className="btn btn-s btn-sm" style={{ marginTop: 10 }} onClick={() => { setMat(''); onMaterial(null, null) }}>Como en la biblioteca</button>}
+  </>
 }
 
 /** Sus últimas veces: la mejor serie de cada día. Con peso, la línea es el peso y cada

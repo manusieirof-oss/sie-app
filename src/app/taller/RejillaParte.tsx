@@ -40,7 +40,7 @@ const chapa = (pos: any): any => ({
   boxShadow: '0 1px 5px rgba(38,40,37,.20)', ...pos,
 })
 
-export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, onAceptarMedida, setComent,
+export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desmarcarEj, setMaterial, onAceptarMedida, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA, desplegar = false }: any) {
@@ -112,6 +112,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
           setComent={setComent}
           onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}
           onCambiar={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
+          onMaterial={setMaterial ? (c: string | null, m: string | null) => setMaterial(pacienteId, ei, c, m) : undefined}
           onVer={ej.ejercicio_id ? () => setCromo({ id: ej.ejercicio_id, ei, cambia: !ej.guardado }) : undefined}
           onRevisar={ej.ejercicio_id ? () => { setRevisar({ id: ej.ejercicio_id, nombre: ej.nombre }); setNotaRev('') } : undefined}
           onCerrar={() => setRosco(null)}/>
@@ -283,6 +284,12 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
                       {cambiandoMedida === String(ej.pos) ? 'Cambiando…' : `Medirlo ${ej._cargaBib} en su sesión`}
                     </button>
                   )}
+                </div>
+              )}
+              {/* EL MATERIAL DE HOY, si no es el de la biblioteca (rosco › Material). */}
+              {(ej.carga || ej.material) && (
+                <div style={{ fontSize: 11, color: '#8A6410', marginTop: 2 }}>
+                  {[ej.carga === 'kg' ? 'con peso' : ej.carga === 'banda' ? 'con goma' : ej.carga === 'corporal' ? 'sin carga' : '', ej.material].filter(Boolean).join(' · ')}
                 </div>
               )}
               {ej.propuesta && <ChipPropuesta p={ej.propuesta}/>}

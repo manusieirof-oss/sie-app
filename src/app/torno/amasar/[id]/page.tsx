@@ -1,4 +1,5 @@
 'use client'
+import UsosMaterial from './UsosMaterial'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ElegirMedida from '@/components/ElegirMedida'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1195,6 +1196,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           </div>
         ) : <div style={{ width: 90 }}/>}
       </div>
+
+      {/* CÓMO SE HA HECHO EN LA SALA: otra carga u otro material, y crear la variante. */}
+      {!nuevo && !grupo && !cargando && <UsosMaterial ejercicioId={params.id} ir={ir}/>}
 
       <CuerpoAmasar {...{ QUESITOS, abierto, cargando, d, editor, encima, familiaAnillo, ficha, grupo, grupoEjs, nuevo, params, paso, preview, q, recien, resumen, resumenOn, rev, set, setAbierto, setD, setEncima, setFichaOn, setResumenOn, setRev, verFicha, volarA }} />
 
