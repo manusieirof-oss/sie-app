@@ -516,7 +516,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
         // Lo suyo se queda como esté; de la agenda se toma lo que pueda haber cambiado
         // (marcado como falta, cambiado de sala).
-        if (ya) { lista.push({ ...ya, estado: d.estado, sala: d.sala, hora: d.hora, citaId: d.citaId, pulsometro: !!(d.sesion as any)?.pulsometro }); continue }
+        if (ya) { lista.push({ ...ya, estado: d.estado, sala: d.sala, hora: d.hora, duracion: d.duracion, citaId: d.citaId, pulsometro: !!(d.sesion as any)?.pulsometro }); continue }
         // La sesión de hoy es el plan CON lo ajustado para este día. Lo preparado
         // semanas antes tiene que llegar a la sala solo; si hubiera que acordarse
         // de mirarlo, no serviría de nada haberlo preparado.
@@ -534,7 +534,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           sesionId: d.sesion?.id || '',
           sesiones: d.disponibles,
           datos, cargado: !!d.sesion, finalizado: false,
-          citaId: d.citaId, estado: d.estado, hora: d.hora, sala: d.sala,
+          citaId: d.citaId, estado: d.estado, hora: d.hora, duracion: d.duracion, sala: d.sala,
           origen: d.origen, sesionVieja: d.sesionVieja,
           // Su sesión pide pulsómetro (se marca al hacerla, en el editor).
           pulsometro: !!(d.sesion as any)?.pulsometro,

@@ -4,6 +4,7 @@ import BarraMomento from '@/components/BarraMomento'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
 import MetodoParte from './MetodoParte'
+import RoscoProgreso from './RoscoProgreso'
 import { usePlegarAcabadas } from './plegarSolo'
 import { cargarMetodos, aplicarMetodo, METODOS_DEFECTO, type ValoresMetodo } from '@/lib/metodos'
 import { pulsoActivo, hayPulso } from '@/lib/pulsoVivo'
@@ -192,6 +193,10 @@ export default function ClaseEnCurso(p: any) {
                   de la sesion con su moneda. Ver `IconosContexto`. */}
               <IconosContexto que="contexto" ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
+            {/* CÓMO VA: ejercicios hechos y tiempo de su clase. Ver RoscoProgreso. */}
+            {act.sesionId && (act.datos||[]).length > 0 && (
+              <RoscoProgreso datos={act.datos} noHechos={leerNoHechos(act.paciente.id, act.sesionId)} hora={act.hora} duracion={act.duracion} fecha={fecha}/>
+            )}
             {/* UN SOLO GUARDADO: «✓ Finalizar» de arriba cierra a todos los de la clase
                 (también las de hoja libre). Lo que se apunta ya se guarda solo al tocarlo. */}
           </div>

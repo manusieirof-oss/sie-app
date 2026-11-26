@@ -31,6 +31,8 @@ export type PacienteDelDia = {
   pacienteId: string
   nombre: string
   hora: string
+  /** Minutos que dura la cita (para el rosco del taller). */
+  duracion?: number
   sala: string
   tipo: string
   /** 'programada' | 'realizada' | 'falta' | 'cancelada' */
@@ -119,7 +121,7 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
   if (!fecha) return []
 
   let q = supabase.from('citas')
-    .select('id,fecha,hora,sala,tipo,estado,notas,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento,foto_url,momento,momento_desde,momento_hasta,momento_cosas), sesiones:sesion_id(*)')
+    .select('id,fecha,hora,duracion_min,sala,tipo,estado,notas,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento,foto_url,momento,momento_desde,momento_hasta,momento_cosas), sesiones:sesion_id(*)')
     .eq('fecha', fecha)
     .neq('estado', 'cancelada')
     .not('paciente_id', 'is', null)
@@ -162,6 +164,7 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
       pacienteId: c.paciente_id,
       nombre: nombreDe(p),
       hora: (c.hora || '').slice(0, 5),
+      duracion: Number(c.duracion_min) || 50,
       sala: c.sala || '',
       tipo: c.tipo || '',
       estado: c.estado || 'programada',
