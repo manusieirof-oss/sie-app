@@ -150,9 +150,10 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
           // Reps o segundos: solo en ejercicios que se cuentan por reps o por tiempo (no metros).
           const volCambiable = ['reps', 'segundos'].includes(partesMedida(ej.tipo_medida).volumen)
           const porSeg = camposDelEjercicio(ej, ejecucionPorTiempo(cfgTrabajo, String(ej.regimen || ej.plan?.regimen || '').toLowerCase())).includes('segundos')
-          // LOS AGARRES QUE ADMITE (sus etiquetas de agarre). Sin ninguno, no sale nada.
+          // LOS AGARRES QUE ADMITE (sus etiquetas de agarre). Con uno solo no hay nada que
+          // elegir (el curl invertido es prono, el martillo neutro): no sale.
           const agarres = agarresDe(etiquetas, ej.etiquetas || [])
-          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (agarres.length > 0 && !!ej.plan?.agarre && cambiadoHoy(ej, 'agarre')) || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
+          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (agarres.length > 1 && !!ej.plan?.agarre && cambiadoHoy(ej, 'agarre')) || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
           const pe = ej.pos != null ? peDe(ej.pos) : null
           const cogida = arrastra?.pos === ej.pos, destino = arrastra && arrastra.sobre === pe && !cogida
           return (
@@ -181,7 +182,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
                   onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
                 {/* EL AGARRE, como el lado: el planificado o el de la última vez, y se cambia
                     solo para hoy. Sin elegir, «+ agarre». */}
-                {agarres.length > 0 && <>
+                {agarres.length > 1 && <>
                   <span style={{ opacity: .7 }}>·</span>
                   <PildoraRegimen texto ej={ej} campo="agarre" opciones={agarres} titulo="Agarre hoy" vacio="+ agarre"
                     onCambio={setAgarre ? (v: string) => setAgarre(pacienteId, ei, v) : undefined}/>

@@ -320,7 +320,8 @@ export default function ParteEjercicios(p: any) {
                       {(() => {
                         const bibAg = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
                         const ags = agarresDe(etiquetas, bibAg?.etiquetas || [])
-                        return ags.length > 0 ? <ChipMenu valor={ej.agarre||''} opciones={ags} clase="chip-ed-l" vacio="Agarre"
+                        // Con un solo agarre no hay nada que elegir: no sale.
+                        return ags.length > 1 ? <ChipMenu valor={ej.agarre||''} opciones={ags} clase="chip-ed-l" vacio="Agarre"
                           titulo="Con qué agarre se hace" onElegir={v=>editarEjercicio(ei,{agarre:v})}/> : null
                       })()}
                       <ChipMenu valor={ej.capacidad} opciones={nombresCapacidad(cfgTrabajo)}

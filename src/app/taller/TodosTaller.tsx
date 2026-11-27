@@ -196,7 +196,8 @@ export default function TodosTaller({ seleccion, nombrePac, a, etiquetas = [] }:
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
                           title={a.puedeCambiar !== false ? 'Lateralidad · toca para cambiar' : 'Lateralidad'} onClick={() => { if (a.puedeCambiar !== false) a.lado(p.id, ei, sig(LADOS, lado)) }}>{lado}</button>
                         {/* EL AGARRE, solo si el ejercicio admite alguno. Un toque pasa al siguiente. */}
-                        {agarres.length > 0 && <button className={'tt-tag lado' + (e.plan?.agarre && e.agarre && e.agarre !== e.plan.agarre ? ' cambio' : '')}
+                        {/* Con un solo agarre no hay nada que elegir: no sale. */}
+                        {agarres.length > 1 && <button className={'tt-tag lado' + (e.plan?.agarre && e.agarre && e.agarre !== e.plan.agarre ? ' cambio' : '')}
                           title={a.agarre ? 'Agarre · toca para cambiar' : 'Agarre'}
                           onClick={() => { if (a.agarre) a.agarre(p.id, ei, agarre ? sig(agarres, agarre) : agarres[0]) }}>{agarre || '+ agarre'}</button>}
                         {/* REPS O SEGUNDOS: en esta vista no se podia elegir. */}
