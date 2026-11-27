@@ -322,8 +322,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       feedbacks: d.feedbacks.filter(i => i.texto?.trim()), trabajo: d.trabajo, anatomia: d.anatomia }
     // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
     if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
+    /* CON LA ETIQUETA «UNILATERAL», SALE UNILATERAL. Si el ejercicio la lleva y nadie ha
+       dicho cómo se suele hacer de lado, se apunta «Unilateral»: así entra en las sesiones y
+       en el taller por un lado. Si luego se hace bilateral, se cambia en el taller. */
+    const conUni = d.etiquetas.some(x => ets.find((e: any) => e.id === x)?.nombre === 'Unilateral')
+    const porDef: Record<string, string> = conUni && !d.por_defecto?.lado ? { ...(d.por_defecto || {}), lado: 'Unilateral' } : (d.por_defecto || {})
     // Igual con «cómo se suele hacer»: solo si se tocó (así no depende de la columna si nunca se usa).
-    if (JSON.stringify(d.por_defecto || {}) !== JSON.stringify(orig.por_defecto || {})) fila.por_defecto = Object.fromEntries(Object.entries(d.por_defecto || {}).filter(([k, v]) => (k === 'regimen' || k === 'lado') && String(v || '').trim()))
+    if (JSON.stringify(porDef) !== JSON.stringify(orig.por_defecto || {})) fila.por_defecto = Object.fromEntries(Object.entries(porDef).filter(([k, v]) => (k === 'regimen' || k === 'lado') && String(v || '').trim()))
     // Quitar la foto (vuelve la figura automática): antes no se guardaba nunca.
     if (!foto && !d.imagen_url && orig.imagen_url) fila.imagen_url = ''
     if (fila.imagen_url === '') fotoCambiada(params.id, null)
