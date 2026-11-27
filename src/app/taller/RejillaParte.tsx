@@ -13,7 +13,7 @@ import { CromoDeId } from '@/components/FichaEjercicio'
 import { supabase } from '@/lib/supabase'
 import { Velo } from './GestionCita'
 import { nombreMedida, camposDelEjercicio, partesMedida } from '@/lib/medida'
-import { useConfigTrabajo } from '@/lib/usarTrabajo'
+import { useConfigTrabajo, ejecucionesPara } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
 import ElegirMedida from '@/components/ElegirMedida'
 import { createPortal } from 'react-dom'
@@ -191,7 +191,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, desma
                     antes, si la sesión no lo traía, no había dónde marcarlo. */}
                 {(hayRegimen || setRegimen) && <>
                   <span style={{ opacity: .7 }}>·</span>
-                  <PildoraRegimen texto ej={ej} vacio="+ ejecución" onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
+                  <PildoraRegimen texto ej={ej} vacio="+ ejecución" opciones={ejecucionesPara(cfgTrabajo, ej._anat?.trabajo)} onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
                 </>}
                 {/* REPS O SEGUNDOS, CON UN TOQUE. Queda para este paciente: la próxima vez
                     sale como se apuntó hoy. */}

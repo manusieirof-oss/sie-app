@@ -1,6 +1,6 @@
 'use client'
 import { apuntarHistorial, resumenCambios } from '@/lib/sesionViva'
-import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad } from '@/lib/usarTrabajo'
+import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad, ejecucionesPara, ejecucionPorDefecto } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo, segundosDeEjecucion } from '@/lib/trabajo'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -302,7 +302,9 @@ export default function ParteEjercicios(p: any) {
                     {/* Régimen y capacidad juntos: los dos dicen cómo se trabaja,
                         no cuánto. Van antes de los números por eso mismo. */}
                     <div className="celda apilada" data-l="Cómo se hace">
-                      <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={nombresEjecucion(cfgTrabajo)}
+                      {/* Un estiramiento ofrece y enseña las ejecuciones de estirar, no las de fuerza. */}
+                      <ChipMenu valor={ej.regimen||ejecucionPorDefecto(cfgTrabajo, catalogo.find((c:any)=>c.id===ej.ejercicio_id)?.trabajo)}
+                        opciones={ejecucionesPara(cfgTrabajo, catalogo.find((c:any)=>c.id===ej.ejercicio_id)?.trabajo)}
                         titulo="Cómo trabaja el músculo: concéntrico al acortarse, excéntrico al frenar, isométrico sin moverse"
                         onElegir={v=>{
                           // Pasar a una ejecución por tiempo (estiramiento, isométrico) pone

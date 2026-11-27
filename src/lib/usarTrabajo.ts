@@ -27,6 +27,32 @@ export function useConfigTrabajo(): ConfigTrabajo {
 }
 
 export const nombresEjecucion = (cfg: ConfigTrabajo) => cfg.ejecuciones.map(e => e.nombre)
+
+/**
+ * ¿EL EJERCICIO ES DE ESTIRAR O DE FUERZA? Por las capacidades de su «trabajo»: si todas
+ * son de estiramiento o movilidad, es de estirar; si no hay ninguna de esas, de fuerza;
+ * si mezcla, no se sabe (null) y se ofrecen todas las ejecuciones.
+ */
+export function grupoDeTrabajo(cfg: ConfigTrabajo, trabajo?: any): 'fuerza' | 'estiramiento' | null {
+  const fams = ((trabajo?.int || []) as string[]).map(id => cfg.intensidades.find(i => i.id === id)?.familia).filter(Boolean)
+  if (!fams.length) return null
+  const estira = (f: any) => f === 'estiramiento' || f === 'movilidad'
+  if (fams.every(estira)) return 'estiramiento'
+  return fams.some(estira) ? null : 'fuerza'
+}
+
+/** LAS EJECUCIONES QUE TIENEN SENTIDO PARA ESTE EJERCICIO. A un estiramiento se le
+ *  ofrecían concéntrico, excéntrico… (las de fuerza); ahora estático, FNP, dinámico… */
+export function ejecucionesPara(cfg: ConfigTrabajo, trabajo?: any): string[] {
+  const g = grupoDeTrabajo(cfg, trabajo)
+  return (g ? cfg.ejecuciones.filter(e => e.grupo === g) : cfg.ejecuciones).map(e => e.nombre)
+}
+
+/** La que se enseña sin elegir: en un estiramiento la primera de estirar (estático), no «Concéntrico». */
+export function ejecucionPorDefecto(cfg: ConfigTrabajo, trabajo?: any): string {
+  return grupoDeTrabajo(cfg, trabajo) === 'estiramiento'
+    ? (cfg.ejecuciones.find(e => e.grupo === 'estiramiento')?.nombre || 'Estático') : 'Concéntrico'
+}
 export const nombresCapacidad = (cfg: ConfigTrabajo) => cfg.intensidades.map(i => i.nombre)
 
 /**

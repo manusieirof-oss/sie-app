@@ -3,7 +3,7 @@ import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import { useEffect, useRef, useState } from 'react'
 import { usePlegarAcabadas } from './plegarSolo'
 import { MedidaRapida, ChipPropuesta } from './RejillaParte'
-import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
+import { useConfigTrabajo, nombresEjecucion, ejecucionesPara } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { agarresDe } from '@/lib/etiquetas'
@@ -192,7 +192,7 @@ export default function TodosTaller({ seleccion, nombrePac, a, etiquetas = [] }:
                       const sig = (l: string[], v: string) => l[(l.indexOf(v) + 1) % l.length]
                       return <div className="tt-tags">
                         <button className={'tt-tag eje' + (e.regimen && e.regimen !== (e.plan?.regimen || 'Concéntrico') ? ' cambio' : '')}
-                          title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(ejecuciones, reg)) }}>{reg || '+ ejecución'}</button>
+                          title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(e._anat?.trabajo ? ejecucionesPara(cfgT, e._anat.trabajo) : ejecuciones, reg)) }}>{reg || '+ ejecución'}</button>
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
                           title={a.puedeCambiar !== false ? 'Lateralidad · toca para cambiar' : 'Lateralidad'} onClick={() => { if (a.puedeCambiar !== false) a.lado(p.id, ei, sig(LADOS, lado)) }}>{lado}</button>
                         {/* EL AGARRE, solo si el ejercicio admite alguno. Un toque pasa al siguiente. */}
