@@ -45,6 +45,12 @@ export function grupoDeTrabajo(cfg: ConfigTrabajo, trabajo?: any): 'fuerza' | 'e
  *  ofrecían concéntrico, excéntrico… (las de fuerza); ahora estático, FNP, dinámico… */
 export function ejecucionesPara(cfg: ConfigTrabajo, trabajo?: any): string[] {
   const g = grupoDeTrabajo(cfg, trabajo)
+  /* En un estiramiento, las que tiene marcadas el ejercicio: el balístico no se ofrece
+     en cervical o muñeca porque ahí no se marca. Sin ninguna marcada, todas las de estirar. */
+  if (g === 'estiramiento') {
+    const suyas = cfg.ejecuciones.filter(e => e.grupo === g && ((trabajo?.eje || []) as string[]).includes(e.id))
+    if (suyas.length) return suyas.map(e => e.nombre)
+  }
   return (g ? cfg.ejecuciones.filter(e => e.grupo === g) : cfg.ejecuciones).map(e => e.nombre)
 }
 
