@@ -352,9 +352,11 @@ export default function ExploradorEjercicios({
   const famNombre: Record<string, string> = {}
   etiquetas.forEach((et: any) => { if (et.categoria === 'familia') famNombre[et.id] = et.nombre || '' })
   const familiaNombre = (e: any) => { const id = (e.etiquetas || []).find((x: string) => famNombre[x]); return id ? famNombre[id] : '' }
-  /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
+  /* SE VEN TODOS. Sin buscar se escondían las variantes detrás de «N variantes ▾» y no se
+     sabía que estaban (lo vio Manu en press de hombro). Ahora salen siempre, cada una
+     detrás de su principal y teñida como su grupo. */
   const visibles = hayFiltro ? filtrados : filtrados.filter(e => !esHijo(e)).flatMap(e =>
-    familiasAbiertas.includes(e.id) ? [e, ...(hijosDe[e.id] || [])] : [e])
+    [e, ...(hijosDe[e.id] || []).filter(h => filtrados.includes(h))])
   const marcado = (e: any) => !!seleccion?.includes(e.id)
   /* PRIMERO LO QUE SE LLAMA ASÍ. Buscando «glúteo» salían mezclados los que lo dicen en
      el nombre y los que solo lo trabajan (por su etiqueta), y no se entendía por qué
@@ -415,7 +417,7 @@ export default function ExploradorEjercicios({
         </div>
         {/* LAS VARIANTES, EN FRANJA bajo la foto (Biblioteca): como chapa pequeña no se veían.
             Toda la anchura de la tarjeta, se toca para desplegar la familia aquí mismo. */}
-        {paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (() => { const ab = familiasAbiertas.includes(e.id)
+        {/* El botón «N variantes» ya no hace falta: las variantes se ven siempre. */}{false && paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (() => { const ab = familiasAbiertas.includes(e.id)
           return <button type="button" onClick={ev => { ev.stopPropagation(); setFamiliasAbiertas(l => ab ? l.filter(x => x !== e.id) : [...l, e.id]) }}
             style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               background: ab ? 'var(--g)' : 'var(--gl)', color: ab ? '#fff' : 'var(--gd)', fontSize: 12, fontWeight: 600, padding: '6px 8px', letterSpacing: .2 }}>
@@ -498,7 +500,7 @@ export default function ExploradorEjercicios({
               buscabas el nombre de una: al montar la sesión elegías el ejercicio a
               secas sin saber que había una unilateral esperando. */}
           {/* LA FAMILIA: se despliega aquí mismo, sin abrir el ejercicio. */}
-          {!paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (
+          {/* El botón «N variantes» ya no hace falta: las variantes se ven siempre. */}{false && !paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (
             <button type="button" className={`chip-sel ${familiasAbiertas.includes(e.id) ? 'on' : ''}`}
               style={{ marginTop: 5, fontSize: 11, padding: '2px 9px' }}
               onClick={ev => { ev.stopPropagation(); setFamiliasAbiertas(l => l.includes(e.id) ? l.filter(x => x !== e.id) : [...l, e.id]) }}>
@@ -608,7 +610,8 @@ export default function ExploradorEjercicios({
               salían 162 cuando hay muchos más: las variantes van dentro de su familia. */}
           {(() => { const n = buscar ? visiblesNombre.length : filtrados.length
             const tarjetas = filtrados.filter(e => !esHijo(e)).length
-            return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` + (!hayFiltro && tarjetas < n ? ` · ${tarjetas} familias y sueltos` : '') })()}
+            void tarjetas
+            return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` })()}
         </span>
         {paneles && (
           // Un toque, siguiente modo. Con su nombre al lado para saber en cuál estás.
